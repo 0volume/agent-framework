@@ -54,6 +54,8 @@
 
 **Implication:** Keep CLI simple, add API later if needed.
 
+---
+
 ## TH-005: GitHub Integration Pattern
 **Date:** 2026-02-18
 
@@ -79,23 +81,17 @@
 - CLI for testing, tool for production
 
 **Implication:** Keep integration layer minimal - framework does the work.
+
+---
+
+## TH-007: Self-Improvement Pattern
 **Date:** 2026-02-18
 
-**Insight:** The agent framework integration works as a standalone Python module that can be called from OpenClaw. This separation keeps concerns clean.
+**Insight:** Agents need structured reflection to improve. The self-improvement module tracks reflections and suggests improvements based on patterns.
 
 **Key Learnings:**
-- Framework lives in its own directory
-- Tool wrapper is thin and simple
-- CLI for testing, tool for production
+- Reflection scheduler runs periodically
+- Tracks error patterns, repetitive tasks
+- Suggests concrete improvements
 
-**Implication:** Keep integration layer minimal - framework does the work.
-**Date:** 2026-02-18
-
-**Insight:** Using research-archive as the "source of truth" for pitch status, with agent-framework as the implementation repo. This mirrors real product management.
-
-**Key Learnings:**
-- Pitch page tracks progress + decisions
-- Implementation repo has code
-- Both sync via git
-
-**Implication:** Document decisions in pitch, code in repo.
+**Implication:** Every agent should have reflection built in.
