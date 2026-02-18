@@ -1,23 +1,37 @@
 # Agent Framework Configuration
-# Version: 1.0.0
-# Created: 2026-02-18
+# Version: 1.0.1
+# Updated: 2026-02-18
+# Note: Rate limits adjusted to match D's plan limits
 
 ## Framework
 LANGGRAPH_VERSION: "0.2.0"
 
-## Rate Limits (per hour)
+## Rate Limits
+# CRITICAL: Must respect D's plan limits
+# - Tavily: 1000 queries/month (~33/day, ~5/hour safe limit)
+# - MiniMax: 100 prompts/5 hours (20/hour hard limit)
+
 rate_limits:
+  # Tavily: 1000/month = ~33/day = ~5/hour safe
   tavily:
-    max_queries: 50
+    max_queries: 5
     window_seconds: 3600
     
+  # MiniMax: 100/5hours = 20/hour hard limit
+  # This is TOTAL for all agents, not per-agent
   llm:
-    max_tokens: 100000
+    max_calls: 20
     window_seconds: 3600
     
+  # Per-agent limits (subset of total)
   per_agent:
-    max_calls: 100
+    max_calls: 5
     window_seconds: 3600
+
+## Daily Budget (for planning)
+daily_budget:
+  tavily_queries: 33  # Monthly 1000 / 30 days
+  llm_calls: 96      # 20/hour * ~5 active hours (roughly)
 
 ## Security
 security:
@@ -29,8 +43,8 @@ security:
   
 ## Agent Defaults
 defaults:
-  max_retries: 3
-  timeout_seconds: 120
+  max_retries: 2  # Reduced to save API calls
+  timeout_seconds: 90
   default_model: "minimax-portal/MiniMax-M2.5"
   
 ## Logging
@@ -43,5 +57,5 @@ logging:
 ## Memory
 memory:
   encrypted: true
-  max_history: 100
-  retention_days: 30
+  max_history: 50  # Reduced to save tokens
+  retention_days: 14  # Shorter retention
