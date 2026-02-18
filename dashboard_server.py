@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""
+Agent Framework - Dashboard Server
+Version: 1.0.0
+
+Local web dashboard for monitoring agents.
+Serves HTML + JSON data endpoint.
+"""
+
+import json
+import http.server
+import socketserver
+import threading
+from pathlib import Path
+from datetime import datetime
+from http.server import SimpleHTTPRequestHandler
+
+PORT = 8765
+DATA_FILE = Path(__file__).parent / "dashboard_data.json"
+
+# In-memory data store
+dashboard_data = {
+    "rate_limits": {
+        "tavily": {"used": 0, "limit": 5, "remaining": 5},
+        "llm": {"used": 0, "limit": 20, "remaining": 20}
+    },
+    "agents": {
+        "search": [],
+        "verify": [],
+        "summarize": [],
+        "security": []
+    },
+    "last_update": None
+}
+
+def load_data():
+    """Load data from file"""
+    global dashboard_data
+    if DATA_FILE.exists():
+        try:
+            with open(DATA_FILE) as f:
+                dashboard_data = json.load(f)
+        except:
+            pass
+
+def save_data():
+    """Save data to file"""
+    dashboard_data["last_update"] = datetime.now().isoformat()
+    with open(DATA_FILE, 'w') as f:
+        json.dump(dashboard_data, f, indent=2)
+
+class DashboardHandler(SimpleHTTPRequestHandler):
+    """Custom handler for dashboard"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
+    
+    def do_GET(self):
+        if self.path == '/data.json':
+            load_data()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(dashboard_data).encode())
+        elif self.path == '/api/update':
+            # API for agents to update status
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode())
+        else:
+            super().do_GET()
+    
+    def do_POST(self):
+        if self.path == '/api/agent':
+            length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(length)
+            try:
+                data = json.loads(post_data)
+                agent_name = data.get('agent', 'unknown')
+                entry = data.get('entry', {})
+                
+                load_data()
+                
+                if agent_name in dashboard_data["agents"]:
+                    dashboard_data["agents"][agent_name].append(entry)
+                    # Keep last 50 entries per agent
+                    dashboard_data["agents"][agent_name] = dashboard_data["agents"][agent_name][-50:]
+                    
+                    save_data()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "ok"}).encode())
+                else:
+                    self.send_response(400)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Unknown agent"}).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        """Suppress logging"""
+        pass
+
+def start_server():
+    """Start the dashboard server"""
+    load_data()
+    
+    handler = DashboardHandler
+    with socketserver.TCPServer(("", PORT), handler) as httpd:
+        print(f"Dashboard running at http://localhost:{PORT}/dashboard.html")
+        print(f"Data endpoint: http://localhost:{PORT}/data.json")
+        httpd.serve_forever()
+
+def add_entry(agent: str, entry_type: str, content: str, details: str = None):
+    """Add entry to agent (for testing)"""
+    entry = {
+        "type": entry_type,
+        "content": content,
+        "timestamp": datetime.now().strftime("%H:%M:%S")
+    }
+    if details:
+        entry["details"] = details
+    
+    load_data()
+    if agent in dashboard_data["agents"]:
+        dashboard_data["agents"][agent].append(entry)
+        dashboard_data["agents"][agent] = dashboard_data["agents"][agent][-50:]
+    save_data()
+
+if __name__ == "__main__":
+    start_server()

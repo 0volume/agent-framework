@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Framework Dashboard</title>
+    <style>
+        * { box-sizing: border-box; }
+        
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-hover: #21262d;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --search: #58a6ff;
+            --verify: #d29922;
+            --summarize: #3fb950;
+            --security: #f85149;
+            --accent: #58a6ff;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1 { margin: 0; font-size: 1.5rem; }
+        
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--summarize);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .agent-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .agent-header {
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .agent-header.search { border-left: 3px solid var(--search); }
+        .agent-header.verify { border-left: 3px solid var(--verify); }
+        .agent-header.summarize { border-left: 3px solid var(--summarize); }
+        .agent-header.security { border-left: 3px solid var(--security); }
+        
+        .agent-header .status {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--bg-hover);
+        }
+        
+        .agent-header .status.active {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--summarize);
+        }
+        
+        .agent-content {
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .entry {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            display: flex;
+            gap: 10px;
+            animation: slideIn 0.2s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .entry:last-child { border-bottom: none; }
+        
+        .entry-time {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            min-width: 55px;
+        }
+        
+        .entry-icon {
+            font-size: 0.9rem;
+        }
+        
+        .entry-content {
+            flex: 1;
+            word-break: break-word;
+        }
+        
+        .entry.thought .entry-icon { color: #a371f7; }
+        .entry.action .entry-icon { color: var(--search); }
+        .entry.result .entry-icon { color: var(--text-muted); }
+        .entry.success .entry-icon { color: var(--summarize); }
+        .entry.error .entry-icon { color: var(--security); }
+        
+        .system-status {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .metric {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .refresh-info {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 20px;
+        }
+        
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        /* Auto-refresh indicator */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--summarize);
+        }
+        
+        .live-indicator::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--summarize);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🤖 Agent Framework Dashboard</h1>
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-dot"></span>
+                <span class="live-indicator">LIVE</span>
+            </div>
+        </div>
+    </header>
+    
+    <div class="system-status" id="metrics">
+        <div class="metric">
+            <span class="metric-label">Tavily</span>
+            <span class="metric-value" id="tavily-status">--/5</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">LLM Calls</span>
+            <span class="metric-value" id="llm-status">--/20</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Active Agents</span>
+            <span class="metric-value" id="active-agents">0</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Total Tasks</span>
+            <span class="metric-value" id="total-tasks">0</span>
+        </div>
+    </div>
+    
+    <div class="agents-grid" id="agents">
+        <div class="agent-card">
+            <div class="agent-header search">
+                <span>🔍 SEARCH</span>
+                <span class="status" id="search-status">IDLE</span>
+            </div>
+            <div class="agent-content" id="search-content">
+                <div class="empty-state">Waiting for tasks...</div>
+            </div>
+        </div>
+        
+        <div class="agent-card">
+            <div class="agent-header verify">
+                <span>✓ VERIFY</span>
+                <span class="status" id="verify-status">IDLE</span>
+            </div>
+            <div class="agent-content" id="verify-content">
+                <div class="empty-state">Waiting for tasks...</div>
+            </div>
+        </div>
+        
+        <div class="agent-card">
+            <div class="agent-header summarize">
+                <span>📝 SUMMARIZE</span>
+                <span class="status" id="summarize-status">IDLE</span>
+            </div>
+            <div class="agent-content" id="summarize-content">
+                <div class="empty-state">Waiting for tasks...</div>
+            </div>
+        </div>
+        
+        <div class="agent-card">
+            <div class="agent-header security">
+                <span>🔒 SECURITY</span>
+                <span class="status" id="security-status">IDLE</span>
+            </div>
+            <div class="agent-content" id="security-content">
+                <div class="empty-state">Monitoring...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="refresh-info">
+        Auto-refreshing every 2 seconds | <a href="/data" style="color: var(--accent);">JSON</a>
+    </div>
+    
+    <script>
+        const ICONS = {
+            thought: '💭',
+            action: '→',
+            result: '←',
+            success: '✓',
+            error: '✗',
+            info: '•'
+        };
+        
+        const AGENT_COLORS = {
+            search: 'search',
+            verify: 'verify',
+            summarize: 'summarize',
+            security: 'security'
+        };
+        
+        let lastUpdate = Date.now();
+        
+        async function fetchData() {
+            try {
+                const resp = await fetch('/data.json?_=' + Date.now());
+                const data = await resp.json();
+                lastUpdate = Date.now();
+                updateDashboard(data);
+            } catch (e) {
+                console.log('Waiting for data...');
+            }
+        }
+        
+        function updateDashboard(data) {
+            // Update metrics
+            if (data.rate_limits) {
+                document.getElementById('tavily-status').textContent = 
+                    `${data.rate_limits.tavily?.remaining || '-'}/5`;
+                document.getElementById('llm-status').textContent = 
+                    `${data.rate_limits.llm?.remaining || '-'}/20`;
+            }
+            
+            // Count active agents
+            let activeCount = 0;
+            let totalTasks = 0;
+            
+            // Update each agent
+            ['search', 'verify', 'summarize', 'security'].forEach(agent => {
+                const entries = data.agents?.[agent] || [];
+                const content = document.getElementById(agent + '-content');
+                const status = document.getElementById(agent + '-status');
+                
+                if (entries.length > 0) {
+                    status.textContent = 'ACTIVE';
+                    status.classList.add('active');
+                    activeCount++;
+                    totalTasks += entries.length;
+                    
+                    content.innerHTML = entries.slice(-20).map(e => `
+                        <div class="entry ${e.type}">
+                            <span class="entry-time">${e.timestamp || ''}</span>
+                            <span class="entry-icon">${ICONS[e.type] || ICONS.info}</span>
+                            <span class="entry-content">${e.content || e.details || ''}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    status.textContent = 'IDLE';
+                    status.classList.remove('active');
+                    content.innerHTML = '<div class="empty-state">Waiting for tasks...</div>';
+                }
+            });
+            
+            document.getElementById('active-agents').textContent = activeCount;
+            document.getElementById('total-tasks').textContent = totalTasks;
+        }
+        
+        // Auto-refresh
+        fetchData();
+        setInterval(fetchData, 2000);
+    </script>
+</body>
+</html>
