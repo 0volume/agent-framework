@@ -69,7 +69,7 @@ class RateLimiter:
                 self.limits['tavily'] = RateLimit(tl['max_queries'], tl['window_seconds'])
             if 'llm' in rl_config:
                 ll = rl_config['llm']
-                self.limits['llm'] = RateLimit(ll['max_tokens'], ll['window_seconds'])
+                self.limits['llm'] = RateLimit(ll['max_calls'], ll['window_seconds'])
     
     def check_agent_limit(self, agent_name: str, config: AgentConfig) -> bool:
         with self._lock:

@@ -1,5 +1,5 @@
 {
-  "current_phase": 4,
+  "current_phase": 5,
   "history": [
     {
       "phase": 1,
@@ -20,6 +20,11 @@
       "phase": 4,
       "completed": "2026-02-18T15:02",
       "notes": "Memory/persistence: conversation history, state persistence via YAML/JSON"
+    },
+    {
+      "phase": 5,
+      "completed": "2026-02-18T22:34",
+      "notes": "OpenClaw integration: agent_framework.py tool wrapper, CLI tested"
     }
   ]
 }

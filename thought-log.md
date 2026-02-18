@@ -54,9 +54,41 @@
 
 **Implication:** Keep CLI simple, add API later if needed.
 
+## TH-005: GitHub Integration Pattern
+**Date:** 2026-02-18
+
+**Insight:** Using research-archive as the "source of truth" for pitch status, with agent-framework as the implementation repo. This mirrors real product management.
+
+**Key Learnings:**
+- Pitch page tracks progress + decisions
+- Implementation repo has code
+- Both sync via git
+
+**Implication:** Document decisions in pitch, code in repo.
+
 ---
 
-## TH-005: GitHub Integration Pattern
+## TH-006: Integration Pattern
+**Date:** 2026-02-18
+
+**Insight:** The agent framework integration works as a standalone Python module that can be called from OpenClaw. This separation keeps concerns clean.
+
+**Key Learnings:**
+- Framework lives in its own directory
+- Tool wrapper is thin and simple
+- CLI for testing, tool for production
+
+**Implication:** Keep integration layer minimal - framework does the work.
+**Date:** 2026-02-18
+
+**Insight:** The agent framework integration works as a standalone Python module that can be called from OpenClaw. This separation keeps concerns clean.
+
+**Key Learnings:**
+- Framework lives in its own directory
+- Tool wrapper is thin and simple
+- CLI for testing, tool for production
+
+**Implication:** Keep integration layer minimal - framework does the work.
 **Date:** 2026-02-18
 
 **Insight:** Using research-archive as the "source of truth" for pitch status, with agent-framework as the implementation repo. This mirrors real product management.
