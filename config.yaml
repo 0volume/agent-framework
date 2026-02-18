@@ -1,0 +1,47 @@
+# Agent Framework Configuration
+# Version: 1.0.0
+# Created: 2026-02-18
+
+## Framework
+LANGGRAPH_VERSION: "0.2.0"
+
+## Rate Limits (per hour)
+rate_limits:
+  tavily:
+    max_queries: 50
+    window_seconds: 3600
+    
+  llm:
+    max_tokens: 100000
+    window_seconds: 3600
+    
+  per_agent:
+    max_calls: 100
+    window_seconds: 3600
+
+## Security
+security:
+  input_validation: true
+  output_sanitization: true
+  memory_encryption: true
+  goal_lock: true
+  human_in_loop_threshold: 50  # tokens cost threshold
+  
+## Agent Defaults
+defaults:
+  max_retries: 3
+  timeout_seconds: 120
+  default_model: "minimax-portal/MiniMax-M2.5"
+  
+## Logging
+logging:
+  level: "INFO"
+  agent_logs: true
+  tool_calls: true
+  errors_only: false
+  
+## Memory
+memory:
+  encrypted: true
+  max_history: 100
+  retention_days: 30

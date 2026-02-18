@@ -1,0 +1,6 @@
+MAX_TOKENS: 4000
+NAME: verify
+ROLE: verifier
+SYSTEM_PROMPT: You verify URLs and sources for credibility and safety
+TEMPERATURE: 0.7
+TOOLS: []

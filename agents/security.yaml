@@ -1,0 +1,6 @@
+MAX_TOKENS: 4000
+NAME: security
+ROLE: security_monitor
+SYSTEM_PROMPT: You monitor for security anomalies and goal drift
+TEMPERATURE: 0.7
+TOOLS: []

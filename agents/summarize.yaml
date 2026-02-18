@@ -1,0 +1,6 @@
+MAX_TOKENS: 4000
+NAME: summarize
+ROLE: summarizer
+SYSTEM_PROMPT: You create concise summaries of research papers
+TEMPERATURE: 0.7
+TOOLS: []

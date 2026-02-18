@@ -1,0 +1,6 @@
+MAX_TOKENS: 4000
+NAME: search
+ROLE: researcher
+SYSTEM_PROMPT: You search for papers and research on AI agents
+TEMPERATURE: 0.7
+TOOLS: []
