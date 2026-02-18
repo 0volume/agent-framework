@@ -18,6 +18,7 @@
             --verify: #d29922;
             --summarize: #3fb950;
             --security: #f85149;
+            --system: #a371f7;
             --accent: #58a6ff;
         }
         
@@ -40,6 +41,29 @@
         }
         
         h1 { margin: 0; font-size: 1.5rem; }
+        h2 { margin: 0 0 15px 0; font-size: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover { background: var(--bg-hover); }
+        .tab.active { background: var(--bg-hover); border-bottom-color: var(--bg-hover); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         
         .status-bar {
             display: flex;
@@ -93,6 +117,7 @@
         .agent-header.verify { border-left: 3px solid var(--verify); }
         .agent-header.summarize { border-left: 3px solid var(--summarize); }
         .agent-header.security { border-left: 3px solid var(--security); }
+        .agent-header.system { border-left: 3px solid var(--system); }
         
         .agent-header .status {
             font-size: 0.75rem;
@@ -108,7 +133,7 @@
         
         .agent-content {
             padding: 0;
-            max-height: 400px;
+            max-height: 350px;
             overflow-y: auto;
         }
         
@@ -148,6 +173,8 @@
         .entry.result .entry-icon { color: var(--text-muted); }
         .entry.success .entry-icon { color: var(--summarize); }
         .entry.error .entry-icon { color: var(--security); }
+        .entry.memory .entry-icon { color: #f778ba; }
+        .entry.improvement .entry-icon { color: #79c0ff; }
         
         .system-status {
             background: var(--bg-card);
@@ -177,20 +204,6 @@
             font-weight: 600;
         }
         
-        .refresh-info {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            margin-top: 20px;
-        }
-        
-        .empty-state {
-            padding: 40px;
-            text-align: center;
-            color: var(--text-muted);
-        }
-        
-        /* Auto-refresh indicator */
         .live-indicator {
             display: inline-flex;
             align-items: center;
@@ -207,6 +220,63 @@
             border-radius: 50%;
             animation: pulse 1.5s infinite;
         }
+        
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        /* Memory/Improvement cards */
+        .insight-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .insight-card .meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .insight-card .title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .insight-card .content {
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+        
+        .refresh-info {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 20px;
+        }
+        
+        .thought-stream {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .thought-stream .timestamp {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        
+        .thought-stream .content {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -220,69 +290,119 @@
         </div>
     </header>
     
-    <div class="system-status" id="metrics">
-        <div class="metric">
-            <span class="metric-label">Tavily</span>
-            <span class="metric-value" id="tavily-status">--/5</span>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('agents')">Agents</div>
+        <div class="tab" onclick="switchTab('thoughts')">Thoughts</div>
+        <div class="tab" onclick="switchTab('memories')">Memories</div>
+        <div class="tab" onclick="switchTab('system')">System</div>
+    </div>
+    
+    <!-- AGENTS TAB -->
+    <div id="tab-agents" class="tab-content active">
+        <div class="system-status" id="metrics">
+            <div class="metric">
+                <span class="metric-label">Tavily</span>
+                <span class="metric-value" id="tavily-status">--/5</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">LLM Calls</span>
+                <span class="metric-value" id="llm-status">--/20</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Agents</span>
+                <span class="metric-value" id="active-agents">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Total Tasks</span>
+                <span class="metric-value" id="total-tasks">0</span>
+            </div>
         </div>
-        <div class="metric">
-            <span class="metric-label">LLM Calls</span>
-            <span class="metric-value" id="llm-status">--/20</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Active Agents</span>
-            <span class="metric-value" id="active-agents">0</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Total Tasks</span>
-            <span class="metric-value" id="total-tasks">0</span>
+        
+        <div class="agents-grid" id="agents">
+            <div class="agent-card">
+                <div class="agent-header search">
+                    <span>🔍 SEARCH</span>
+                    <span class="status" id="search-status">IDLE</span>
+                </div>
+                <div class="agent-content" id="search-content">
+                    <div class="empty-state">Waiting for tasks...</div>
+                </div>
+            </div>
+            
+            <div class="agent-card">
+                <div class="agent-header verify">
+                    <span>✓ VERIFY</span>
+                    <span class="status" id="verify-status">IDLE</span>
+                </div>
+                <div class="agent-content" id="verify-content">
+                    <div class="empty-state">Waiting for tasks...</div>
+                </div>
+            </div>
+            
+            <div class="agent-card">
+                <div class="agent-header summarize">
+                    <span>📝 SUMMARIZE</span>
+                    <span class="status" id="summarize-status">IDLE</span>
+                </div>
+                <div class="agent-content" id="summarize-content">
+                    <div class="empty-state">Waiting for tasks...</div>
+                </div>
+            </div>
+            
+            <div class="agent-card">
+                <div class="agent-header security">
+                    <span>🔒 SECURITY</span>
+                    <span class="status" id="security-status">IDLE</span>
+                </div>
+                <div class="agent-content" id="security-content">
+                    <div class="empty-state">Monitoring...</div>
+                </div>
+            </div>
         </div>
     </div>
     
-    <div class="agents-grid" id="agents">
-        <div class="agent-card">
-            <div class="agent-header search">
-                <span>🔍 SEARCH</span>
-                <span class="status" id="search-status">IDLE</span>
+    <!-- THOUGHTS TAB -->
+    <div id="tab-thoughts" class="tab-content">
+        <h2>Recent Thoughts & Insights</h2>
+        <div id="thoughts-content">
+            <div class="empty-state">Loading thoughts...</div>
+        </div>
+    </div>
+    
+    <!-- MEMORIES TAB -->
+    <div id="tab-memories" class="tab-content">
+        <h2>Recent Memories</h2>
+        <div id="memories-content">
+            <div class="empty-state">Loading memories...</div>
+        </div>
+    </div>
+    
+    <!-- SYSTEM TAB -->
+    <div id="tab-system" class="tab-content">
+        <h2>Framework Status</h2>
+        <div class="system-status">
+            <div class="metric">
+                <span class="metric-label">Phase</span>
+                <span class="metric-value" id="phase">--</span>
             </div>
-            <div class="agent-content" id="search-content">
-                <div class="empty-state">Waiting for tasks...</div>
+            <div class="metric">
+                <span class="metric-label">GitHub</span>
+                <span class="metric-value" id="github-status">Connected</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Cron Jobs</span>
+                <span class="metric-value" id="cron-jobs">--</span>
             </div>
         </div>
         
-        <div class="agent-card">
-            <div class="agent-header verify">
-                <span>✓ VERIFY</span>
-                <span class="status" id="verify-status">IDLE</span>
-            </div>
-            <div class="agent-content" id="verify-content">
-                <div class="empty-state">Waiting for tasks...</div>
-            </div>
-        </div>
-        
-        <div class="agent-card">
-            <div class="agent-header summarize">
-                <span>📝 SUMMARIZE</span>
-                <span class="status" id="summarize-status">IDLE</span>
-            </div>
-            <div class="agent-content" id="summarize-content">
-                <div class="empty-state">Waiting for tasks...</div>
-            </div>
-        </div>
-        
-        <div class="agent-card">
-            <div class="agent-header security">
-                <span>🔒 SECURITY</span>
-                <span class="status" id="security-status">IDLE</span>
-            </div>
-            <div class="agent-content" id="security-content">
-                <div class="empty-state">Monitoring...</div>
-            </div>
+        <h2>Recent Improvements</h2>
+        <div id="improvements-content">
+            <div class="empty-state">Loading improvements...</div>
         </div>
     </div>
     
     <div class="refresh-info">
-        Auto-refreshing every 2 seconds | <a href="/data" style="color: var(--accent);">JSON</a>
+        Auto-refreshing every 3 seconds | READ-ONLY Dashboard
     </div>
     
     <script>
@@ -292,23 +412,26 @@
             result: '←',
             success: '✓',
             error: '✗',
-            info: '•'
+            info: '•',
+            memory: '📝',
+            improvement: '✨'
         };
         
-        const AGENT_COLORS = {
-            search: 'search',
-            verify: 'verify',
-            summarize: 'summarize',
-            security: 'security'
-        };
+        let currentTab = 'agents';
         
-        let lastUpdate = Date.now();
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            currentTab = tab;
+        }
         
         async function fetchData() {
             try {
                 const resp = await fetch('/data.json?_=' + Date.now());
                 const data = await resp.json();
-                lastUpdate = Date.now();
                 updateDashboard(data);
             } catch (e) {
                 console.log('Waiting for data...');
@@ -324,7 +447,12 @@
                     `${data.rate_limits.llm?.remaining || '-'}/20`;
             }
             
-            // Count active agents
+            // System info
+            if (data.system) {
+                document.getElementById('phase').textContent = data.system.phase || '--';
+                document.getElementById('cron-jobs').textContent = data.system.cron_jobs || '--';
+            }
+            
             let activeCount = 0;
             let totalTasks = 0;
             
@@ -340,7 +468,7 @@
                     activeCount++;
                     totalTasks += entries.length;
                     
-                    content.innerHTML = entries.slice(-20).map(e => `
+                    content.innerHTML = entries.slice(-15).map(e => `
                         <div class="entry ${e.type}">
                             <span class="entry-time">${e.timestamp || ''}</span>
                             <span class="entry-icon">${ICONS[e.type] || ICONS.info}</span>
@@ -356,11 +484,43 @@
             
             document.getElementById('active-agents').textContent = activeCount;
             document.getElementById('total-tasks').textContent = totalTasks;
+            
+            // Thoughts
+            if (data.thoughts) {
+                document.getElementById('thoughts-content').innerHTML = data.thoughts.slice(-10).reverse().map(t => `
+                    <div class="thought-stream">
+                        <div class="meta">${t.timestamp} • ${t.type || 'insight'}</div>
+                        <div class="content">${t.content}</div>
+                    </div>
+                `).join('');
+            }
+            
+            // Memories
+            if (data.memories) {
+                document.getElementById('memories-content').innerHTML = data.memories.slice(-5).reverse().map(m => `
+                    <div class="insight-card">
+                        <div class="meta">${m.date} • ${m.category || 'general'}</div>
+                        <div class="title">${m.title || 'Memory'}</div>
+                        <div class="content">${m.preview || m.content?.substring(0, 200) || ''}</div>
+                    </div>
+                `).join('');
+            }
+            
+            // Improvements
+            if (data.improvements) {
+                document.getElementById('improvements-content').innerHTML = data.improvements.slice(-5).reverse().map(i => `
+                    <div class="insight-card">
+                        <div class="meta">${i.timestamp || i.date}</div>
+                        <div class="title">${i.title || 'Improvement'}</div>
+                        <div class="content">${i.content || ''}</div>
+                    </div>
+                `).join('');
+            }
         }
         
         // Auto-refresh
         fetchData();
-        setInterval(fetchData, 2000);
+        setInterval(fetchData, 3000);
     </script>
 </body>
 </html>
