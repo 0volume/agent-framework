@@ -1,0 +1,4 @@
+{"timestamp": "2026-02-18T15:01:47.360326", "agent": "test_agent", "level": "INFO", "message": "Agent registered: tester", "data": {}}
+{"timestamp": "2026-02-18T15:01:47.361339", "agent": "test_agent", "level": "INFO", "message": "Agent state saved", "data": {}}
+{"timestamp": "2026-02-18T15:01:47.363467", "agent": "test_agent", "level": "INFO", "message": "Agent registered: tester", "data": {}}
+{"timestamp": "2026-02-18T15:01:47.363518", "agent": "test_agent", "level": "INFO", "message": "Agent state loaded", "data": {}}

@@ -229,6 +229,103 @@ class SecurityLayer:
         """Reset violation log"""
         self.violations = []
 
+class ConversationHistory:
+    """Track conversation history for each agent"""
+    
+    def __init__(self, history_dir: Path, max_turns: int = 50):
+        self.history_dir = history_dir
+        history_dir.mkdir(parents=True, exist_ok=True)
+        self.max_turns = max_turns
+    
+    def add_turn(self, agent_name: str, role: str, content: str, metadata: Optional[Dict] = None):
+        """Add a conversation turn"""
+        history_file = self.history_dir / f"{agent_name}_history.json"
+        
+        history = self.load_history(agent_name)
+        turn = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'role': role,  # 'user', 'assistant', 'system', 'tool'
+            'content': content[:5000],  # Limit content length
+            'metadata': metadata or {}
+        }
+        history.append(turn)
+        
+        # Truncate to max turns
+        history = history[-self.max_turns:]
+        
+        with open(history_file, 'w') as f:
+            json.dump(history, f, indent=2)
+    
+    def load_history(self, agent_name: str) -> List[Dict]:
+        """Load conversation history"""
+        history_file = self.history_dir / f"{agent_name}_history.json"
+        
+        if not history_file.exists():
+            return []
+        
+        try:
+            with open(history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    
+    def get_recent(self, agent_name: str, n: int = 10) -> List[Dict]:
+        """Get n most recent turns"""
+        history = self.load_history(agent_name)
+        return history[-n:]
+    
+    def clear_history(self, agent_name: str):
+        """Clear agent history"""
+        history_file = self.history_dir / f"{agent_name}_history.json"
+        if history_file.exists():
+            history_file.unlink()
+
+
+class PersistenceLayer:
+    """Save and load complete agent state"""
+    
+    def __init__(self, state_dir: Path):
+        self.state_dir = state_dir
+        state_dir.mkdir(parents=True, exist_ok=True)
+    
+    def save_agent_state(self, agent_name: str, state: Dict):
+        """Save complete agent state"""
+        state_file = self.state_dir / f"{agent_name}_state.json"
+        
+        state_data = {
+            'agent_name': agent_name,
+            'timestamp': datetime.utcnow().isoformat(),
+            'state': state
+        }
+        
+        with open(state_file, 'w') as f:
+            json.dump(state_data, f, indent=2)
+    
+    def load_agent_state(self, agent_name: str) -> Optional[Dict]:
+        """Load agent state"""
+        state_file = self.state_dir / f"{agent_name}_state.json"
+        
+        if not state_file.exists():
+            return None
+        
+        try:
+            with open(state_file, 'r') as f:
+                data = json.load(f)
+            return data.get('state')
+        except:
+            return None
+    
+    def list_saved_agents(self) -> List[str]:
+        """List all saved agent states"""
+        return [f.stem.replace('_state', '') for f in self.state_dir.glob('*_state.json')]
+    
+    def delete_agent_state(self, agent_name: str):
+        """Delete saved agent state"""
+        state_file = self.state_dir / f"{agent_name}_state.json"
+        if state_file.exists():
+            state_file.unlink()
+
+
 class MemoryManager:
     """Encrypted agent memory management"""
     
@@ -237,6 +334,10 @@ class MemoryManager:
         memory_dir.mkdir(parents=True, exist_ok=True)
         self.encrypted = config.get('memory', {}).get('encrypted', True)
         self.max_history = config.get('memory', {}).get('max_history', 100)
+        
+        # Initialize conversation history and persistence
+        self.conversation_history = ConversationHistory(memory_dir / "conversations")
+        self.persistence = PersistenceLayer(memory_dir / "state")
         
         # Simple key derivation (in production, use proper key management)
         self._key = hashlib.sha256(b'agent-framework-2026').digest()
@@ -294,6 +395,25 @@ class MemoryManager:
             return json.loads(decrypted)
         except:
             return []
+    
+    # Convenience methods for conversation history
+    def add_conversation_turn(self, agent_name: str, role: str, content: str, metadata: Optional[Dict] = None):
+        """Add a conversation turn"""
+        self.conversation_history.add_turn(agent_name, role, content, metadata)
+    
+    def get_conversation_history(self, agent_name: str, n: int = 10) -> List[Dict]:
+        """Get recent conversation history"""
+        return self.conversation_history.get_recent(agent_name, n)
+    
+    # Convenience methods for persistence
+    def save_agent_full_state(self, agent_name: str, state: Dict):
+        """Save complete agent state"""
+        self.persistence.save_agent_state(agent_name, state)
+    
+    def load_agent_full_state(self, agent_name: str) -> Optional[Dict]:
+        """Load complete agent state"""
+        return self.persistence.load_agent_state(agent_name)
+
 
 class AgentFramework:
     """Main framework orchestrator"""
@@ -343,6 +463,65 @@ class AgentFramework:
             'rate_limits': self.get_rate_status(),
             'timestamp': datetime.utcnow().isoformat()
         }
+    
+    # Persistence methods
+    def save_agent_state(self, agent_name: str):
+        """Save complete agent state including conversation history"""
+        if agent_name not in self.agents:
+            return False
+        
+        agent = self.agents[agent_name]
+        state = {
+            'config': {
+                'name': agent['config'].name,
+                'role': agent['config'].role,
+                'system_prompt': agent['config'].system_prompt,
+                'tools': agent['config'].tools,
+                'max_tokens': agent['config'].max_tokens,
+                'temperature': agent['config'].temperature
+            },
+            'status': agent['status'].value,
+            'memory': agent.get('memory', []),
+            'conversation_history': self.memory.conversation_history.load_history(agent_name)
+        }
+        
+        self.memory.save_agent_full_state(agent_name, state)
+        self.logger.log(agent_name, "INFO", "Agent state saved")
+        return True
+    
+    def load_agent_state(self, agent_name: str):
+        """Load agent state and restore"""
+        state = self.memory.load_agent_full_state(agent_name)
+        
+        if not state:
+            return False
+        
+        # Restore config
+        config_data = state.get('config', {})
+        config = AgentConfig(
+            name=config_data.get('name', agent_name),
+            role=config_data.get('role', 'unknown'),
+            system_prompt=config_data.get('system_prompt', ''),
+            tools=config_data.get('tools', []),
+            max_tokens=config_data.get('max_tokens', 4000),
+            temperature=config_data.get('temperature', 0.7)
+        )
+        
+        # Register/restore agent
+        self.register_agent(config)
+        
+        # Restore status
+        if agent_name in self.agents:
+            status_str = state.get('status', 'idle')
+            self.agents[agent_name]['status'] = AgentStatus(status_str)
+            self.agents[agent_name]['memory'] = state.get('memory', [])
+        
+        self.logger.log(agent_name, "INFO", "Agent state loaded")
+        return True
+    
+    def track_conversation(self, agent_name: str, role: str, content: str, metadata: Optional[Dict] = None):
+        """Track a conversation turn"""
+        self.memory.add_conversation_turn(agent_name, role, content, metadata)
 
 # Global framework instance
 _framework: Optional[AgentFramework] = None

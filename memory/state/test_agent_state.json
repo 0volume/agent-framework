@@ -1,0 +1,38 @@
+{
+  "agent_name": "test_agent",
+  "timestamp": "2026-02-18T15:01:47.361219",
+  "state": {
+    "config": {
+      "name": "test_agent",
+      "role": "tester",
+      "system_prompt": "You are a test agent",
+      "tools": [
+        "test_tool"
+      ],
+      "max_tokens": 4000,
+      "temperature": 0.7
+    },
+    "status": "idle",
+    "memory": [],
+    "conversation_history": [
+      {
+        "timestamp": "2026-02-18T15:01:47.360457",
+        "role": "user",
+        "content": "Hello agent",
+        "metadata": {}
+      },
+      {
+        "timestamp": "2026-02-18T15:01:47.360600",
+        "role": "assistant",
+        "content": "Hello! How can I help?",
+        "metadata": {}
+      },
+      {
+        "timestamp": "2026-02-18T15:01:47.360829",
+        "role": "user",
+        "content": "What is 2+2?",
+        "metadata": {}
+      }
+    ]
+  }
+}

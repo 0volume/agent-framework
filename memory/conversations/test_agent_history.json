@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-02-18T15:01:47.360457",
+    "role": "user",
+    "content": "Hello agent",
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-02-18T15:01:47.360600",
+    "role": "assistant",
+    "content": "Hello! How can I help?",
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-02-18T15:01:47.360829",
+    "role": "user",
+    "content": "What is 2+2?",
+    "metadata": {}
+  }
+]
