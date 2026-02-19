@@ -105,6 +105,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         from urllib.parse import urlparse
         path = urlparse(self.path).path
 
+        # Redirect root to dashboard.html
+        if path == '/' or path == '':
+            self.send_response(302)
+            self.send_header('Location', '/dashboard.html')
+            self.end_headers()
+            return
+
         if path == '/sys.json':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
