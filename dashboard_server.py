@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler
 
-PORT = 8765
+PORT = 8766
 DATA_FILE = Path(__file__).parent / "dashboard_data.json"
 
 # In-memory data store
@@ -115,9 +115,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 def start_server():
     """Start the dashboard server"""
     load_data()
-    
+
+    # Avoid "Address already in use" on quick restarts (TIME_WAIT)
+    socketserver.TCPServer.allow_reuse_address = True
+
     handler = DashboardHandler
-    with socketserver.TCPServer(("", PORT), handler) as httpd:
+    with socketserver.ThreadingTCPServer(("", PORT), handler) as httpd:
         print(f"Dashboard running at http://localhost:{PORT}/dashboard.html")
         print(f"Data endpoint: http://localhost:{PORT}/data.json")
         httpd.serve_forever()
