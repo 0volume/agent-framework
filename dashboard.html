@@ -127,7 +127,13 @@
       <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;">Sub-agents (always visible)</div>
       <div style="color:var(--muted);font-size:.72rem;">Click tile → History</div>
     </div>
-    <div class="grid" id="agentTiles"></div>
+    <div class="grid" id="agentTiles">
+      <!-- Fallback tiles (visible even if JS fails) -->
+      <div class="tile" data-agent="search"><div class="thead search"><div>🔍 SEARCH</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
+      <div class="tile" data-agent="verify"><div class="thead verify"><div>✓ VERIFY</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
+      <div class="tile" data-agent="summarize"><div class="thead summarize"><div>📝 SUMMARIZE</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
+      <div class="tile" data-agent="security"><div class="thead security"><div>🔒 SECURITY</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
+    </div>
   </section>
 
   <!-- AGENTS -->
@@ -184,7 +190,7 @@
     </div>
   </section>
 
-  <div class="footer">Auto-refresh: 2s • Read-only • If you don’t see updates, hard-refresh (Ctrl+F5).</div>
+  <div class="footer">Auto-refresh: 2s • Read-only • <span id="jsStatus">JS: loading…</span> • If you don’t see updates, hard-refresh (Ctrl+F5).</div>
 
   <script>
     const AGENTS = [
@@ -383,17 +389,22 @@
     }
 
     async function fetchData(){
-      const r = await fetch('/data.json?_='+Date.now());
-      DATA = await r.json();
-      qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
-      renderMetrics();
-      renderSol();
-      renderTiles();
-      renderThoughts();
-      renderMemories();
-      renderImprovements();
-      // If history is visible, keep it live
-      if(qs('#panel-history').classList.contains('active')) renderHistory();
+      try {
+        const r = await fetch('/data.json?_='+Date.now(), { cache: 'no-store' });
+        DATA = await r.json();
+        qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
+        qs('#jsStatus').textContent = 'JS: ok';
+        renderMetrics();
+        renderSol();
+        renderTiles();
+        renderThoughts();
+        renderMemories();
+        renderImprovements();
+        if(qs('#panel-history').classList.contains('active')) renderHistory();
+      } catch (e) {
+        qs('#jsStatus').textContent = 'JS: fetch failed';
+        console.error(e);
+      }
     }
 
     setTabs();
