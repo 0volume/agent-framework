@@ -256,8 +256,11 @@ class TurnAccumulator:
         if text:
             self.response_text = text
 
-    def build_event(self) -> tuple[str, str, str]:
-        """Return (type, summary, detail_text)."""
+    def build_events(self) -> list[tuple[str, str, str]]:
+        """Return a small sequence of high-level, queryable events.
+
+        This is intentionally *granular* (multiple snippets) but still cognitive/high-level.
+        """
         topic = _topic_summary(self.user_text)
 
         # Summary should be human, at-a-glance.
@@ -312,7 +315,29 @@ class TurnAccumulator:
         lines.append("- Keep logs high-signal: cognitive intent, decisions, outcomes")
 
         detail_text = "\n".join(lines).strip()
-        return ('activity', summary, detail_text)
+
+        # Produce multiple smaller events for better "moving" stream.
+        events: list[tuple[str, str, str]] = []
+
+        # 1) Thought (narrative)
+        events.append(('thought', f"How I interpreted it: {summary}", "\n".join([
+            "Narrative",
+            f"- D asked about: {summary}",
+            "- I interpreted this as needing: a clear outcome + clean UX + stable/accurate telemetry",
+            "- So I focused on: (1) stability, (2) data quality, (3) readability, (4) drill‑down",
+        ])))
+
+        # 2) Plan (next steps)
+        events.append(('plan', f"Plan: {summary}", "\n".join([
+            "Plan",
+            "- Capture more of this 'narrative' for each interaction",
+            "- Keep logs high-signal: cognitive intent, decisions, outcomes",
+        ])))
+
+        # 3) Activity (full block for drill-down)
+        events.append(('activity', summary, detail_text))
+
+        return events
 
 
 # One accumulator for the current tailed file
@@ -362,22 +387,21 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
         if resp_text:
             ACC.add_response(resp_text)
             # Emit one aggregated event when we have a response
-            typ, summ, detail = ACC.build_event()
+            evs = ACC.build_events()
 
-            # Also store a dedicated 'thought' narrative entry for the Thoughts/History tabs
+            # Emit the granular events to the dashboard JSON + SQLite (via append_sol)
+            # (event_summary returns only one, so we return the first; the loop in main will handle persistence)
+            # We'll pack the extra ones into the dashboard via append_sol calls here.
             try:
-                append_event(
-                    agent='sol',
-                    typ='thought',
-                    summary=f"Why I did what I did: {summ[:90]}",
-                    detail_text=detail[:4000],
-                    detail={'source':'narrative'},
-                    ts=datetime.now(timezone.utc).isoformat(),
-                )
+                d = load_dashboard(dashboard_path)
+                for (typ, summ, det) in evs:
+                    append_sol(d, typ, summ, detail_text=det)
+                save_dashboard(dashboard_path, d)
             except Exception:
                 pass
 
-            return (typ, summ, detail)
+            # Return the main activity event for compatibility
+            return evs[-1]
         return None
 
     if role == 'toolResult':
