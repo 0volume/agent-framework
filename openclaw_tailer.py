@@ -363,8 +363,13 @@ class TurnAccumulator:
 ACC = TurnAccumulator()
 
 
-def event_summary(obj: dict) -> tuple[str, str, str] | None:
-    """Consume raw OpenClaw JSONL wrapper, update ACC, and occasionally emit a high-level event."""
+def event_summary(obj: dict):
+    """Consume raw OpenClaw JSONL wrapper and return:
+
+    - None
+    - a single (type, summary, detail_text)
+    - OR a list of (type, summary, detail_text) for granular streaming
+    """
     msg = obj.get('message') if isinstance(obj.get('message'), dict) else None
     if not msg:
         return None
@@ -390,48 +395,18 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
             ACC.add_thinking(thinking_snips)
 
             # Emit immediate granular thought events (so the feed moves during work)
-            try:
-                d = load_dashboard(dashboard_path)
-                for sn in thinking_snips[-2:]:
-                    append_sol(
-                        d,
-                        'thought',
-                        'Thinking about the request',
-                        detail_text=(
-                            'High-level thinking\n'
-                            '- ' + sn
-                        ),
-                    )
-                    # Also store in Thoughts tab
-                    d.setdefault('thoughts', [])
-                    d['thoughts'].append({
-                        'timestamp': now_ts(),
-                        'type': 'high_level_thinking',
-                        'content': sn,
-                        'detail_text': sn,
-                    })
-                d['thoughts'] = d['thoughts'][-200:]
-                save_dashboard(dashboard_path, d)
-            except Exception:
-                pass
+            out = []
+            for sn in thinking_snips[-2:]:
+                out.append((
+                    'thought',
+                    'Thinking about the request',
+                    'High-level thinking\n- ' + sn,
+                ))
+            return out
         if resp_text:
             ACC.add_response(resp_text)
-            # Emit one aggregated event when we have a response
-            evs = ACC.build_events()
-
-            # Emit the granular events to the dashboard JSON + SQLite (via append_sol)
-            # (event_summary returns only one, so we return the first; the loop in main will handle persistence)
-            # We'll pack the extra ones into the dashboard via append_sol calls here.
-            try:
-                d = load_dashboard(dashboard_path)
-                for (typ, summ, det) in evs:
-                    append_sol(d, typ, summ, detail_text=det)
-                save_dashboard(dashboard_path, d)
-            except Exception:
-                pass
-
-            # Return the main activity event for compatibility
-            return evs[-1]
+            # Emit granular events when we have a response
+            return ACC.build_events()
         return None
 
     if role == 'toolResult':
@@ -481,9 +456,13 @@ def main():
 
                 ev = event_summary(obj)
                 if ev:
-                    typ, summary, detail_text = ev
                     d = load_dashboard(dashboard_path)
-                    append_sol(d, typ, summary, detail_text=detail_text)
+                    if isinstance(ev, list):
+                        for (typ, summary, detail_text) in ev:
+                            append_sol(d, typ, summary, detail_text=detail_text)
+                    else:
+                        typ, summary, detail_text = ev
+                        append_sol(d, typ, summary, detail_text=detail_text)
                     save_dashboard(dashboard_path, d)
 
         time.sleep(args.poll_ms / 1000)
