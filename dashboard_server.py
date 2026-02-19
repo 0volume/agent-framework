@@ -15,6 +15,11 @@ from pathlib import Path
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler
 
+# Local event store (SQLite)
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent))
+from db.events import append_event, query_events
+
 PORT = 8766
 DATA_FILE = Path(__file__).parent / "dashboard_data.json"
 
@@ -110,6 +115,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(get_sys_metrics()).encode())
         elif path == '/data.json':
             load_data()
+            # Include recent events for drill-down/history
+            try:
+                dashboard_data['events'] = query_events(limit=300)
+            except Exception as e:
+                dashboard_data['events'] = [{'id': -1, 'ts': datetime.utcnow().isoformat()+'Z', 'agent': 'system', 'type': 'error', 'summary': 'events query failed', 'payload': {'error': str(e)}}]
+
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -154,9 +165,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 
                 if agent_name in dashboard_data["agents"]:
                     dashboard_data["agents"][agent_name].append(entry)
-                    # Keep last 50 entries per agent
-                    dashboard_data["agents"][agent_name] = dashboard_data["agents"][agent_name][-50:]
-                    
+                    # Keep last 200 entries per agent in JSON (DB is the real history)
+                    dashboard_data["agents"][agent_name] = dashboard_data["agents"][agent_name][-200:]
+
+                    # Also append to SQLite for durable history + verbose payload
+                    try:
+                        typ = entry.get('type', 'status')
+                        summary = entry.get('content') or entry.get('details') or str(entry)[:200]
+                        append_event(agent=agent_name, typ=typ, summary=summary[:200], detail=entry)
+                    except Exception:
+                        pass
+
                     save_data()
                     
                     self.send_response(200)
