@@ -388,12 +388,29 @@
       ).join('');
     }
 
+    window.addEventListener('error', (ev) => {
+      try {
+        const msg = ev?.message || 'unknown error';
+        qs('#jsStatus').textContent = 'JS error: ' + msg;
+      } catch {}
+    });
+
     async function fetchData(){
+      // Separate: fetch/parsing vs rendering errors.
+      let payload;
       try {
         const r = await fetch('/data.json?_='+Date.now(), { cache: 'no-store' });
-        DATA = await r.json();
-        qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
-        qs('#jsStatus').textContent = 'JS: ok';
+        payload = await r.json();
+      } catch (e) {
+        qs('#jsStatus').textContent = 'JS: fetch failed (' + (e?.message || e) + ')';
+        console.error('fetch failed', e);
+        return;
+      }
+
+      DATA = payload;
+      qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
+
+      try {
         renderMetrics();
         renderSol();
         renderTiles();
@@ -401,9 +418,10 @@
         renderMemories();
         renderImprovements();
         if(qs('#panel-history').classList.contains('active')) renderHistory();
+        qs('#jsStatus').textContent = 'JS: ok';
       } catch (e) {
-        qs('#jsStatus').textContent = 'JS: fetch failed';
-        console.error(e);
+        qs('#jsStatus').textContent = 'JS: render failed (' + (e?.message || e) + ')';
+        console.error('render failed', e);
       }
     }
 
