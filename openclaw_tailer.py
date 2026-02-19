@@ -76,7 +76,7 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
 
     # Keep cognitive streams queryable in their own tabs (non-destructive: append-only, capped)
     try:
-        if typ in ('thought', 'plan', 'insight', 'reflection', 'risk'):
+        if typ in ('thought', 'plan', 'insight', 'highlight', 'reflection', 'risk'):
             d.setdefault('thoughts', [])
             d['thoughts'].append({
                 'timestamp': now_ts(),
@@ -374,10 +374,32 @@ class TurnAccumulator:
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
             # Keep original line breaks for highlight extraction
             rt_lines = [ln.strip() for ln in (rt or '').splitlines() if ln.strip()]
-            # Capture a few concrete bullets as "highlights" (grounded in the actual response text)
-            for ln in rt_lines[:40]:
-                if ln.startswith('- '):
-                    highlights.append(_short(ln[2:].strip(), 140))
+            # Capture a few concrete bullets as "highlights" (grounded in the actual response text).
+            # Guardrails: do NOT treat code-ish bullets (function names/backticks/underscores) as highlights.
+            allow_prefixes = (
+                'fixed', 'added', 'changed', 'deployed', 'committed', 'pushed', 'restarted',
+                'result', 'root cause', 'next', 'note', 'risk', 'decision'
+            )
+            for ln in rt_lines[:60]:
+                if not ln.startswith('- '):
+                    continue
+                item = ln[2:].strip()
+                low = item.lower()
+
+                # Exclude code-ish / internal bullets
+                if '`' in item:
+                    continue
+                if '(' in item and ')' in item and any(ch.isalnum() for ch in item.split('(')[0]):
+                    # usually looks like a function call / signature
+                    continue
+                if item.startswith('_') or '()' in item or item.count('_') >= 2:
+                    continue
+
+                # Prefer bullets that look like human change-log / outcomes
+                if not any(low.startswith(p) for p in allow_prefixes):
+                    continue
+
+                highlights.append(_short(item, 140))
                 if len(highlights) >= 3:
                     break
 
@@ -404,9 +426,10 @@ class TurnAccumulator:
             events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
             LAST_INTENT = summary
 
-        # Emit an "insight" event if we actually have concrete highlights.
+        # Emit a "highlight" event if we actually have concrete highlights.
+        # (Avoid calling these "insights" — an insight should be a real learning, not a changelog bullet.)
         if highlights:
-            events.append(('insight', f"Highlights: {summary}", "\n".join(["Highlights"] + [f"- {h}" for h in highlights[:3]])))
+            events.append(('highlight', f"Highlights: {summary}", "\n".join(["Highlights"] + [f"- {h}" for h in highlights[:3]])))
 
         # Full drill-down event.
         events.append(('activity', summary, detail_text))
