@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """openclaw_tailer.py
 
-Tails OpenClaw session JSONL logs and writes a near-real-time activity feed into dashboard_data.json.
+Tails OpenClaw session JSONL logs and writes a near-real-time *high-level* activity feed.
 
-Goal: show message received / tool calls / responses as they happen.
-Read-only. No control channel.
-
-Notes:
-- This does NOT expose hidden chain-of-thought. It logs observable events + short high-level summaries.
-- It watches for the newest session file and continues tailing.
+Design goals (per D):
+- High-level, human-readable, cognitive events (topic, plan, key actions, outcomes)
+- Avoid low-level noise (do NOT store every tool call / raw outputs)
+- Store: short summary for live feed + richer, still human-readable detail for click/expand
+- No hidden chain-of-thought dumping
+- Read-only. No control channel.
 
 Usage:
   python3 openclaw_tailer.py --dashboard /root/.openclaw/workspace/agent-framework/dashboard_data.json \
@@ -91,74 +91,209 @@ def tail_file(path: Path, start_pos: int):
             yield line
 
 
+def _short(s: str, n: int) -> str:
+    s = (s or '').strip()
+    return s if len(s) <= n else s[: n - 1] + '…'
+
+
+def _tool_purpose(tool_name: str, args: dict | None) -> tuple[str, str]:
+    """Return (why, accomplished) from best-effort heuristics."""
+    if tool_name == 'web_fetch':
+        url = (args or {}).get('url')
+        return ("to fetch a source page", f"fetched: {_short(str(url), 80)}")
+    if tool_name == 'web_search':
+        q = (args or {}).get('query')
+        return ("to search the web", f"query: {_short(str(q), 80)}")
+    if tool_name == 'exec':
+        cmd = (args or {}).get('command', '')
+        scmd = str(cmd)
+        if 'systemctl' in scmd:
+            return ("to manage/check services", "checked service status")
+        if 'curl' in scmd:
+            return ("to check an endpoint", "verified HTTP response")
+        if 'git ' in scmd:
+            return ("to update repository state", "updated repo")
+        if 'df ' in scmd or 'free ' in scmd or 'uptime' in scmd:
+            return ("to read system metrics", "collected system stats")
+        return ("to run a system command", _short(scmd.replace('\n', ' '), 120))
+    if tool_name == 'message':
+        return ("to notify you", "sent notification")
+    return ("to use a tool", "completed")
+
+
+def _extract_user_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list) and content and isinstance(content[0], dict):
+        return content[0].get('text') or ''
+    return ''
+
+
+def _extract_assistant_text_blocks(content) -> tuple[str, list[dict], list[str]]:
+    """Return (response_text, tool_calls, thinking_snippets)."""
+    response_text = ''
+    tool_calls: list[dict] = []
+    thinking_snips: list[str] = []
+
+    if isinstance(content, str):
+        return (content, tool_calls, thinking_snips)
+
+    if isinstance(content, list):
+        texts = []
+        for b in content:
+            if not isinstance(b, dict):
+                continue
+            if b.get('type') == 'toolCall':
+                tool_calls.append({
+                    'name': b.get('name'),
+                    'arguments': b.get('arguments') if isinstance(b.get('arguments'), dict) else {},
+                })
+            elif b.get('type') == 'thinking':
+                t = b.get('thinking')
+                if isinstance(t, str) and t.strip():
+                    # Keep only a small excerpt; no chain-of-thought dumping.
+                    thinking_snips.append(_short(t.strip(), 220))
+            elif b.get('type') == 'text':
+                txt = b.get('text')
+                if isinstance(txt, str) and txt.strip():
+                    texts.append(txt.strip())
+        response_text = '\n'.join(texts).strip()
+
+    return (response_text, tool_calls, thinking_snips)
+
+
+class TurnAccumulator:
+    """Accumulate low-level events into a single high-level log entry per user request."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.user_text = ''
+        self.user_ts = ''
+        self.tool_calls: list[dict] = []
+        self.tool_results: list[dict] = []
+        self.thinking: list[str] = []
+        self.response_text = ''
+
+    def has_active(self) -> bool:
+        return bool(self.user_text)
+
+    def add_user(self, ts_iso: str, text: str):
+        self.reset()
+        self.user_ts = ts_iso
+        self.user_text = text.strip()
+
+    def add_tool_call(self, name: str, args: dict):
+        self.tool_calls.append({'name': name, 'arguments': args})
+
+    def add_tool_result(self, tool_name: str, aggregated: str):
+        # Keep tiny: just first ~200 chars
+        self.tool_results.append({'tool': tool_name, 'out': _short(aggregated, 240)})
+
+    def add_thinking(self, snippets: list[str]):
+        self.thinking.extend(snippets)
+
+    def add_response(self, text: str):
+        if text:
+            self.response_text = text
+
+    def build_event(self) -> tuple[str, str, str]:
+        """Return (type, summary, detail_text)."""
+        topic = _short(self.user_text.replace('\n', ' '), 90)
+
+        # High-level tools summary
+        tools_used = []
+        for tc in self.tool_calls:
+            n = tc.get('name')
+            if n:
+                tools_used.append(n)
+        tools_used = list(dict.fromkeys(tools_used))  # dedupe preserve order
+
+        summary_parts = []
+        if topic:
+            summary_parts.append(topic)
+        if tools_used:
+            summary_parts.append("tools: " + ', '.join(tools_used[:3]) + ("…" if len(tools_used) > 3 else ""))
+        if self.response_text:
+            summary_parts.append("done")
+
+        summary = " | ".join(summary_parts) or "Activity"
+
+        # Detail text: still human-readable
+        lines = []
+        lines.append("What D asked")
+        lines.append("- " + self.user_text.strip())
+        if self.thinking:
+            lines.append("")
+            lines.append("My high-level thinking")
+            for s in self.thinking[-3:]:
+                lines.append("- " + s)
+        if self.tool_calls:
+            lines.append("")
+            lines.append("Key actions")
+            for tc in self.tool_calls[:6]:
+                why, acc = _tool_purpose(tc.get('name',''), tc.get('arguments') or {})
+                lines.append(f"- Used {tc.get('name')} {why} → {acc}")
+        if self.tool_results:
+            lines.append("")
+            lines.append("Important outputs")
+            for tr in self.tool_results[:4]:
+                lines.append(f"- {tr['tool']}: {tr['out']}")
+        if self.response_text:
+            lines.append("")
+            lines.append("Response summary")
+            lines.append("- " + _short(self.response_text.replace('\n',' '), 380))
+
+        detail_text = "\n".join(lines).strip()
+        return ('activity', summary, detail_text)
+
+
+# One accumulator for the current tailed file
+ACC = TurnAccumulator()
+
+
 def event_summary(obj: dict) -> tuple[str, str, str] | None:
-    """Extract a high-level, human-readable event.
-
-    Returns: (type, summary, detail_text)
-    """
-
-    # OpenClaw session JSONL lines are wrapped like:
-    # {"type":"message", "timestamp":..., "message": {"role":..., "content":[...]}}
+    """Consume raw OpenClaw JSONL wrapper, update ACC, and occasionally emit a high-level event."""
     msg = obj.get('message') if isinstance(obj.get('message'), dict) else None
-    if msg:
-        role = msg.get('role')
-        content = msg.get('content')
+    if not msg:
+        return None
 
-        # User message
-        if role == 'user':
-            if isinstance(content, str):
-                return ('message', f"Message received", content[:400])
-            if isinstance(content, list) and content and isinstance(content[0], dict):
-                # sometimes content is structured
-                text = content[0].get('text') or str(content[0])
-                return ('message', f"Message received", str(text)[:400])
+    role = msg.get('role')
+    content = msg.get('content')
+    ts_iso = obj.get('timestamp') or datetime.now(timezone.utc).isoformat()
 
-        # Assistant message
-        if role == 'assistant':
-            # content is usually a list with thinking/toolCall blocks
-            if isinstance(content, list):
-                # Summarize tool calls
-                for block in content:
-                    if not isinstance(block, dict):
-                        continue
-                    if block.get('type') == 'toolCall':
-                        name = block.get('name')
-                        args = block.get('arguments')
-                        detail = ''
-                        if args and isinstance(args, dict):
-                            # keep small
-                            detail = json.dumps(args)[:500]
-                        return ('action', f"Tool call: {name}", detail)
-                    if block.get('type') == 'thinking':
-                        # We do NOT dump hidden reasoning; we store a short excerpt.
-                        thinking = block.get('thinking')
-                        if isinstance(thinking, str) and thinking.strip():
-                            return ('thinking', 'Thinking (summary)', thinking.strip()[:500])
+    if role == 'user':
+        text = _extract_user_text(content)
+        ACC.add_user(ts_iso, text)
+        # Emit one immediate high-level "received" event (topic only)
+        topic = _short(text.replace('\n', ' '), 90)
+        detail = f"Message topic: {topic}\n\nFull message:\n{text.strip()}"
+        return ('message', f"New request: {topic}", detail)
 
-                # If no tool call, treat as response
-                # Try to find text output
-                text_bits = []
-                for block in content:
-                    if isinstance(block, dict) and block.get('type') == 'text':
-                        text_bits.append(block.get('text',''))
-                if text_bits:
-                    t = '\n'.join(text_bits).strip()
-                    if t:
-                        return ('result', 'Response sent', t[:500])
+    if role == 'assistant':
+        resp_text, tool_calls, thinking_snips = _extract_assistant_text_blocks(content)
+        for tc in tool_calls:
+            ACC.add_tool_call(tc.get('name'), tc.get('arguments') or {})
+        if thinking_snips:
+            ACC.add_thinking(thinking_snips)
+        if resp_text:
+            ACC.add_response(resp_text)
+            # Emit one aggregated event when we have a response
+            return ACC.build_event()
+        return None
 
-            if isinstance(content, str):
-                return ('result', 'Response sent', content[:500])
+    if role == 'toolResult':
+        tool_name = msg.get('toolName')
+        details = msg.get('details')
+        agg = ''
+        if isinstance(details, dict):
+            agg = details.get('aggregated') or ''
+        # We store only a small excerpt as "important output" and do not emit separate event.
+        if tool_name and agg:
+            ACC.add_tool_result(tool_name, agg)
+        return None
 
-        # ToolResult lines
-        if role == 'toolResult':
-            tool_name = msg.get('toolName')
-            details = msg.get('details')
-            agg = ''
-            if isinstance(details, dict):
-                agg = details.get('aggregated') or ''
-            return ('result', f"Tool result: {tool_name}", str(agg)[:800])
-
-    # Fallback: ignore
     return None
 
 
