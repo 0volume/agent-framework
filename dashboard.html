@@ -320,7 +320,7 @@
           <input id="hSearch" placeholder="Search…" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 32px 8px 10px;font-size:.82rem;box-sizing:border-box;" />
           <button id="hSearchClear" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;">×</button>
         </div>
-        <select id="hLimit" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"><option>100</option><option>250</option><option>500</option></select>
+        <select id="hLimit" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"><option>100</option><option selected>500</option><option>1000</option></select>
       </div>
       <div style="overflow:auto;">
         <table style="width:100%;border-collapse:collapse;">
@@ -682,8 +682,14 @@
 
     function initHistoryControls(){
       const agentSel = qs('#hAgent');
+      // Get unique agents from DATA.events if available, fallback to AGENTS
+      let agentOptions = AGENTS.map(a=>a.key);
+      if(DATA && DATA.events && DATA.events.length > 0){
+        const eventAgents = [...new Set(DATA.events.map(e=>e.agent))];
+        agentOptions = [...new Set([...agentOptions, ...eventAgents])];
+      }
       agentSel.innerHTML = `<option value="">All agents</option>` +
-        [`<option value="sol">sol</option>`].concat(AGENTS.map(a=>`<option value="${a.key}">${a.key}</option>`)).join('');
+        [`<option value="sol">sol</option>`].concat(agentOptions.map(a=>`<option value="${a}">${a}</option>`)).join('');
 
       const typeSel = qs('#hType');
       typeSel.innerHTML = `<option value="">All types</option>`;
