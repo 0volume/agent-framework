@@ -192,6 +192,19 @@
 
   <div class="footer">Auto-refresh: 2s • Read-only • <span id="jsStatus">JS: loading…</span> • If you don’t see updates, hard-refresh (Ctrl+F5).</div>
 
+  <!-- Modal for drill-down (read-only) -->
+  <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);padding:24px;z-index:9999;">
+    <div style="max-width:980px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);">
+        <div style="font-weight:750;" id="modalTitle">Details</div>
+        <button id="modalClose" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer;">Close</button>
+      </div>
+      <div style="padding:14px;max-height:70vh;overflow:auto;">
+        <pre id="modalBody" style="white-space:pre-wrap;word-break:break-word;margin:0;color:var(--text);font-size:.82rem;line-height:1.35;"></pre>
+      </div>
+    </div>
+  </div>
+
   <script>
     const AGENTS = [
       {key:'sol', name:'SOL', icon:'🧠', cls:'sol'},
@@ -405,7 +418,39 @@
       } catch {}
     });
 
-    async function fetchData(){
+    function openModal(title, obj){
+      const m = qs('#modal');
+      qs('#modalTitle').textContent = title;
+      try {
+        qs('#modalBody').textContent = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
+      } catch {
+        qs('#modalBody').textContent = String(obj);
+      }
+      m.style.display = 'block';
+    }
+    function closeModal(){ qs('#modal').style.display='none'; }
+    qs('#modalClose').addEventListener('click', closeModal);
+    qs('#modal').addEventListener('click', (e)=>{ if(e.target.id==='modal') closeModal(); });
+
+    // Click-to-drill: any event card or history row opens modal
+    document.addEventListener('click', (ev)=>{
+      const act = ev.target.closest('.act');
+      if(act){
+        openModal('Event', act.innerText.trim());
+        return;
+      }
+      const row = ev.target.closest('#hBody tr');
+      if(row && row.children.length>=4){
+        openModal('History row', {
+          time: row.children[0].innerText,
+          agent: row.children[1].innerText,
+          type: row.children[2].innerText,
+          content: row.children[3].innerText,
+        });
+      }
+    });
+
+    async function fetchData(){ 
       // Separate: fetch/parsing vs rendering errors.
       let payload;
       try {
