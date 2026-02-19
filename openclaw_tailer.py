@@ -59,10 +59,11 @@ def save_dashboard(path: Path, data: dict):
     path.write_text(json.dumps(data, indent=2))
 
 
-def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
+def append_sol(d: dict, typ: str, content: str, detail_text: str = "", agent: str = "sol"):
+    """Append a Sol (or subagent) event to the dashboard data."""
     ts_iso = datetime.now(timezone.utc).isoformat()
-    d.setdefault("agents", {}).setdefault("sol", [])
-    d["agents"]["sol"].append({
+    d.setdefault("agents", {}).setdefault(agent, [])
+    d["agents"][agent].append({
         "type": typ,
         "timestamp": now_ts(),
         "content": (content or '')[:500],
@@ -72,11 +73,11 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
     })
 
     # Keep a longer rolling window; the live stream can be bursty.
-    d["agents"]["sol"] = d["agents"]["sol"][-2000:]
+    d["agents"][agent] = d["agents"][agent][-2000:]
 
     # Also persist to SQLite as a durable event
     try:
-        append_event(agent="sol", typ=typ, summary=(content or '')[:200], detail_text=(detail_text or '')[:8000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
+        append_event(agent=agent, typ=typ, summary=(content or '')[:200], detail_text=(detail_text or '')[:8000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
     except Exception:
         pass
 
@@ -729,6 +730,63 @@ def _tail_new_lines(path: Path, start_pos: int, max_lines: int = 400):
                 break
 
 
+def _detect_agent_from_session(path: Path) -> str:
+    """Detect agent name from session file.
+    
+    Looks at the session filename and content to determine which agent
+    this session belongs to. Returns 'sol' as default.
+    """
+    fname = path.name.lower()
+    
+    # Check filename for known subagent patterns
+    # Sessions created via sessions_spawn have labels embedded in session keys
+    # We scan the first few lines to find user prompts that identify the agent
+    
+    try:
+        with path.open('r', encoding='utf-8', errors='ignore') as f:
+            for i, line in enumerate(f):
+                if i > 20:  # Only check first 20 lines
+                    break
+                try:
+                    obj = json.loads(line)
+                    msg = obj.get('message')
+                    if not msg:
+                        continue
+                    content = msg.get('content')
+                    
+                    # Handle content as string or list
+                    if isinstance(content, str):
+                        text_to_check = content
+                    elif isinstance(content, list):
+                        # Extract text from list blocks
+                        texts = []
+                        for block in content:
+                            if isinstance(block, dict) and block.get('type') == 'text':
+                                texts.append(block.get('text', ''))
+                        text_to_check = ' '.join(texts)
+                    else:
+                        continue
+                    
+                    low = text_to_check.lower()
+                    if 'portal-architect' in low:
+                        return 'portal-architect'
+                    if 'code-agent' in low or 'code agent' in low:
+                        return 'code'
+                    if 'planner' in low and 'agent' in low:
+                        return 'planner'
+                    if 'reviewer' in low and 'agent' in low:
+                        return 'reviewer'
+                    if 'researcher' in low and 'agent' in low:
+                        return 'researcher'
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    
+    # Default to sol
+    return 'sol'
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dashboard', required=True)
@@ -747,9 +805,17 @@ def main():
     while True:
         files = _iter_session_files(args.sessions, args.sessions_glob)
 
+        # Cache agent detection per file (don't re-scan on every poll)
+        agent_cache: dict[str, str] = {}
+
         for fpath in files:
             key = str(fpath)
             last_pos = int(pos_map.get(key, 0))
+
+            # Detect agent for this session (cached)
+            if key not in agent_cache:
+                agent_cache[key] = _detect_agent_from_session(fpath)
+            agent_name = agent_cache[key]
 
             # If file shrank (rotated), reset
             try:
@@ -775,10 +841,10 @@ def main():
                     d = load_dashboard(dashboard_path)
                     if isinstance(ev, list):
                         for (typ, summary, detail_text) in ev:
-                            append_sol(d, typ, summary, detail_text=detail_text)
+                            append_sol(d, typ, summary, detail_text=detail_text, agent=agent_name)
                     else:
                         typ, summary, detail_text = ev
-                        append_sol(d, typ, summary, detail_text=detail_text)
+                        append_sol(d, typ, summary, detail_text=detail_text, agent=agent_name)
                     save_dashboard(dashboard_path, d)
 
             if changed:
