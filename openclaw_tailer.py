@@ -423,18 +423,11 @@ def event_summary(obj: dict):
         for tc in tool_calls:
             ACC.add_tool_call(tc.get('name'), tc.get('arguments') or {})
         if thinking_snips:
+            # Accuracy policy: do not emit raw "thinking" snippets as telemetry.
+            # They can contain speculative/internal text that looks like a workflow update.
+            # We only log (a) narrative interpretation, (b) concrete tool actions, (c) final response.
             ACC.add_thinking(thinking_snips)
 
-            # Emit an immediate granular thought event (so the feed moves during work)
-            # One event per assistant chunk, with multiple bullets, so expansion is useful.
-            snips = [s.strip() for s in thinking_snips if (s or '').strip()]
-            snips = snips[-6:]  # keep latest few
-            if not snips:
-                return None
-
-            summary = _short(snips[0].replace('\n', ' '), 90)
-            detail = "High-level thinking\n" + "\n".join(["- " + s for s in snips])
-            return [('thought', summary, detail)]
         if resp_text:
             ACC.add_response(resp_text)
             # Emit granular events when we have a response
