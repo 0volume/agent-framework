@@ -155,9 +155,16 @@
     }
     .tag.message{ border-color: rgba(121,192,255,.35); color:#a8d1ff; }
     .tag.activity{ border-color: rgba(88,166,255,.35); color:#9fceff; }
-    .tag.thinking{ border-color: rgba(163,113,247,.35); color:#d4b8ff; }
-    .tag.reasoning{ border-color: rgba(240,136,62,.45); color:#ffd1a7; }
+    .tag.thought{ border-color: rgba(163,113,247,.35); color:#d4b8ff; }
+    .tag.idea{ border-color: rgba(56,189,248,.35); color:#b6ecff; }
+    .tag.plan{ border-color: rgba(240,136,62,.45); color:#ffd1a7; }
+    .tag.reflection{ border-color: rgba(199,210,254,.35); color:#dde3ff; }
+    .tag.insight{ border-color: rgba(63,185,80,.35); color:#bff5c9; }
+    .tag.risk{ border-color: rgba(248,81,73,.35); color:#ffb4ad; }
     .tag.decision{ border-color: rgba(255,123,114,.35); color:#ffb4ad; }
+    .tag.highlight{ border-color: rgba(120,193,255,.35); color:#a8d1ff; }
+    .tag.worklog{ border-color: rgba(148,163,184,.35); color:#d2dae6; }
+    .tag.reasoning{ border-color: rgba(240,136,62,.45); color:#ffd1a7; }
     .tag.memory{ border-color: rgba(247,120,186,.35); color:#ffc2e7; }
     .tag.improvement{ border-color: rgba(110,231,183,.35); color:#bfffea; }
     .tag.result{ border-color: rgba(63,185,80,.35); color:#bff5c9; }
@@ -236,6 +243,7 @@
     <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="history">History</div>
     <div class="tab" data-tab="thoughts">Thoughts</div>
+    <div class="tab" data-tab="worklog">Worklog</div>
     <div class="tab" data-tab="memories">Memories</div>
     <div class="tab" data-tab="improvements">Improvements</div>
     <div class="tab" data-tab="system">System</div>
@@ -314,7 +322,12 @@
 
   <!-- THOUGHTS -->
   <section class="panel" id="panel-thoughts">
-    <div class="card"><div class="hd"><div class="title">💭 Thoughts</div><div class="meta">Click to expand</div></div><div class="feed" id="thoughtList"></div></div>
+    <div class="card"><div class="hd"><div class="title">💭 Thoughts</div><div class="meta">Cognitive stream (strict)</div></div><div class="feed" id="thoughtList"></div></div>
+  </section>
+
+  <!-- WORKLOG -->
+  <section class="panel" id="panel-worklog">
+    <div class="card"><div class="hd"><div class="title">🧾 Worklog</div><div class="meta">Commits / restarts / file updates • Click to expand</div></div><div class="feed" id="worklogList"></div></div>
   </section>
 
   <!-- MEMORIES -->
@@ -442,6 +455,8 @@
           t.classList.add('active');
           qs('#panel-'+t.dataset.tab).classList.add('active');
           if(t.dataset.tab==='history') renderHistory();
+          if(t.dataset.tab==='thoughts') renderThoughts();
+          if(t.dataset.tab==='worklog') renderWorklog();
         });
       });
     }
@@ -523,7 +538,15 @@
         activity: 'activity',
         thinking: 'thinking',
         reasoning: 'reasoning',
+        thought: 'thought',
+        idea: 'idea',
+        plan: 'plan',
+        reflection: 'reflection',
+        insight: 'insight',
         decision: 'decision',
+        risk: 'risk',
+        highlight: 'highlight',
+        worklog: 'worklog',
         memory: 'memory',
         improvement: 'improvement',
         result: 'result',
@@ -583,11 +606,20 @@
 
     function renderThoughts(){
       renderSimpleList('thoughtList', DATA?.thoughts || [], (t)=>{
-        const title = (t.type || 'thought');
+        const typ = (t.type || 'thought').toString().toLowerCase();
         const summary = (t.content || '');
         const detail = (t.detail_text || t.content || '');
         const id = storeDetail(detail);
-        return `<div class="evt" data-title="${safe(title)}" data-detail-id="${id}"><div class="ts">${safe((t.timestamp||'').slice(-5))}</div><div class="tag thinking">thought</div><div class="summary">${safe(summary)}</div></div>`;
+        return `<div class="evt" data-title="${safe(typ)}" data-detail-id="${id}"><div class="ts">${safe((t.timestamp||'').slice(-5))}</div><div class="tag ${safe(typ)}">${safe(typ)}</div><div class="summary">${safe(summary)}</div></div>`;
+      });
+    }
+
+    function renderWorklog(){
+      renderSimpleList('worklogList', DATA?.worklog || [], (w)=>{
+        const summary = (w.content || '');
+        const detail = (w.detail_text || w.content || '');
+        const id = storeDetail(detail);
+        return `<div class="evt" data-title="worklog" data-detail-id="${id}"><div class="ts">${safe((w.timestamp||'').slice(-5))}</div><div class="tag worklog">worklog</div><div class="summary">${safe(summary)}</div></div>`;
       });
     }
 
