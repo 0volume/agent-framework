@@ -290,101 +290,72 @@ class TurnAccumulator:
     def build_events(self) -> list[tuple[str, str, str]]:
         """Return a small sequence of high-level, queryable events.
 
-        This is intentionally *granular* (multiple snippets) but still cognitive/high-level.
+        Policy (per D): this must be human-readable and *grounded*.
+        Avoid template filler like "I interpreted this as needing clear UX" unless it is
+        genuinely specific to this turn.
         """
-        topic = _topic_summary(self.user_text)
-
-        # Summary should be human, at-a-glance.
+        user_clean = _strip_leading_timestamp(self.user_text.strip())
+        topic = _topic_summary(user_clean)
         summary = topic or "Activity"
 
-        # Detail text: still human-readable
-        lines = []
-        # Narrative-first detail view (what D wants to monitor)
-        user_clean = _strip_leading_timestamp(self.user_text.strip())
+        lines: list[str] = []
 
-        lines.append("What D asked")
-        lines.append("- " + _short(user_clean, 1200))
+        # 1) Request (ground truth)
+        lines.append("Request")
+        lines.append("- " + _short(user_clean, 1600))
 
-        # A storytelling-style narrative (high-level, human, not hidden chain-of-thought)
-        lines.append("")
-        lines.append("Narrative")
-        topic = _topic_summary(user_clean)
-        lines.append(f"- D asked about: {topic}")
-        lines.append("- I interpreted this as needing: a clear outcome + clean UX + stable/accurate telemetry")
-        lines.append("- So I focused on: (1) stability, (2) data quality, (3) readability, (4) drill‑down")
-
-        if self.thinking:
-            lines.append("")
-            lines.append("My high-level thinking")
-            for s in self.thinking[-4:]:
-                lines.append("- " + s)
-
+        # 2) Actions (grounded in actual tool usage)
         if self.tool_calls:
             lines.append("")
-            lines.append("Key actions")
-            # Summarize actions into 1–2 human lines (no repetitive tool spam)
+            lines.append("Actions")
             tool_names = [tc.get('name') for tc in self.tool_calls if tc.get('name')]
             uniq = list(dict.fromkeys(tool_names))
-            if uniq:
-                lines.append(f"- I used a few tools ({', '.join(uniq[:3])}{'…' if len(uniq)>3 else ''}) to implement the requested change.")
-            # Add one concrete sentence if we can infer intent
-            intent = []
-            for n in uniq:
-                if n == 'exec': intent.append('make/verify system changes')
-                if n == 'edit' or n == 'write': intent.append('update files')
-                if n == 'cron': intent.append('schedule/adjust jobs')
-                if n == 'web_fetch': intent.append('verify a source')
-            intent = list(dict.fromkeys(intent))
-            if intent:
-                lines.append("- The goal was to " + ", then ".join(intent[:2]) + ".")
 
-        # Important outputs: keep only if they indicate a user-visible state change or error.
+            # One-line overview
+            if uniq:
+                lines.append(f"- Tools used: {', '.join(uniq[:6])}{'…' if len(uniq) > 6 else ''}")
+
+            # Up to a few concrete, non-repetitive purposes
+            seen = set()
+            for tc in self.tool_calls:
+                name = tc.get('name')
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                why, did = _tool_purpose(name, tc.get('arguments') or {})
+                lines.append(f"- {name}: {did}")
+                if len(seen) >= 4:
+                    break
+
+        # 3) Outputs (only if meaningful)
         if self.tool_results:
             kept = [tr for tr in self.tool_results if tr.get('out')]
             if kept:
                 lines.append("")
-                lines.append("Important outputs")
-                # At most one line
-                tr = kept[0]
-                lines.append(f"- {tr['out']}")
+                lines.append("Notable outputs")
+                for tr in kept[:3]:
+                    lines.append(f"- {tr['out']}")
 
+        # 4) Response (what the user actually saw)
         if self.response_text:
             lines.append("")
-            lines.append("Response summary")
+            lines.append("Response")
             import re
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
             rt = ' '.join(rt.split())
-            # Prefer first 1-2 sentences over a hard cut
             parts = re.split(r"(?<=[.!?])\s+", rt)
             short = ' '.join(parts[:2]).strip() if parts else rt
-            lines.append("- " + _short(short, 520))
-
-        lines.append("")
-        lines.append("What I plan next")
-        lines.append("- Capture more of this 'narrative' for each interaction")
-        lines.append("- Keep logs high-signal: cognitive intent, decisions, outcomes")
+            lines.append("- " + _short(short, 700))
 
         detail_text = "\n".join(lines).strip()
 
-        # Produce multiple smaller events for better "moving" stream.
+        # Emit fewer, higher-signal events.
         events: list[tuple[str, str, str]] = []
 
-        # 1) Thought (narrative)
-        events.append(('thought', f"D asked → my interpretation: {summary}", "\n".join([
-            "Narrative",
-            f"- D asked about: {summary}",
-            "- I interpreted this as needing: a clear outcome + clean UX + stable/accurate telemetry",
-            "- So I focused on: (1) stability, (2) data quality, (3) readability, (4) drill‑down",
-        ])))
+        # A single thought event to anchor the turn, but without templated filler.
+        events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
 
-        # 2) Plan (next steps)
-        events.append(('plan', f"Plan: {summary}", "\n".join([
-            "Plan",
-            "- Capture more of this 'narrative' for each interaction",
-            "- Keep logs high-signal: cognitive intent, decisions, outcomes",
-        ])))
-
-        # 3) Activity (full block for drill-down)
+        # Full drill-down event.
         events.append(('activity', summary, detail_text))
 
         return events
