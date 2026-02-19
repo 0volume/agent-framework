@@ -34,19 +34,25 @@ def save_dashboard_data(data: dict):
         json.dump(data, f, indent=2)
 
 def add_thought(content: str, thought_type: str = "insight"):
-    """Add a thought to the dashboard"""
+    """Add a thought to the dashboard (append-only, non-destructive).
+
+    Note: the live dashboard tailer is the primary source of thoughts.
+    This helper should never truncate or overwrite existing streams.
+    """
     data = load_dashboard_data()
-    
+
     thought = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "type": thought_type,
-        "content": content[:500]
+        "content": content[:500],
+        "detail_text": content[:2000],
     }
-    
-    data["thoughts"] = data.get("thoughts", [])
+
+    data.setdefault("thoughts", [])
     data["thoughts"].append(thought)
-    data["thoughts"] = data["thoughts"][-20:]  # Keep last 20
-    
+    # Keep a generous window; avoid wiping useful history.
+    data["thoughts"] = data["thoughts"][-800:]
+
     save_dashboard_data(data)
 
 def add_memory(title: str, content: str, category: str = "general"):
@@ -68,54 +74,57 @@ def add_memory(title: str, content: str, category: str = "general"):
     save_dashboard_data(data)
 
 def add_improvement(title: str, content: str):
-    """Add an improvement to the dashboard"""
+    """Add an improvement to the dashboard (append-only, non-destructive)."""
     data = load_dashboard_data()
-    
+
     improvement = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "title": title[:100],
-        "content": content[:300]
+        "content": content[:300],
+        "detail_text": content[:2000],
     }
-    
-    data["improvements"] = data.get("improvements", [])
+
+    data.setdefault("improvements", [])
     data["improvements"].append(improvement)
-    data["improvements"] = data["improvements"][-10:]  # Keep last 10
-    
+    data["improvements"] = data["improvements"][-300:]
+
     save_dashboard_data(data)
 
 def sync_memories():
-    """Sync recent memories from memory directory"""
+    """Sync memory headings from memory/YYYY-MM-DD.md into dashboard_data.json.
+
+    Non-destructive: only appends missing items; keeps a reasonable window.
+    """
     data = load_dashboard_data()
-    
-    # Read today's memory file
+
     today = datetime.now().strftime("%Y-%m-%d")
     memory_file = MEMORY_DIR / f"{today}.md"
-    
-    if memory_file.exists():
-        with open(memory_file) as f:
-            content = f.read()
-        
-        # Extract key points (lines starting with ##)
-        lines = content.split('\n')
-        key_points = [l.replace('##', '').strip() for l in lines if l.startswith('##')]
-        
-        if key_points:
-            data["memories"] = data.get("memories", [])
-            
-            # Add new memories from today
-            for point in key_points[:3]:
-                # Check if already added
-                existing = [m for m in data["memories"] if m.get("title") == point]
-                if not existing:
-                    data["memories"].append({
-                        "date": today,
-                        "title": point[:100],
-                        "preview": point[:150],
-                        "category": "daily"
-                    })
-            
-            data["memories"] = data["memories"][-10:]
-            save_dashboard_data(data)
+
+    if not memory_file.exists():
+        return
+
+    content = memory_file.read_text()
+    lines = content.split('\n')
+    key_points = [l.replace('##', '').strip() for l in lines if l.startswith('##')]
+    if not key_points:
+        return
+
+    data.setdefault('memories', [])
+    existing_titles = {m.get('title') for m in data['memories'] if isinstance(m, dict)}
+
+    for point in key_points[:10]:
+        if point in existing_titles:
+            continue
+        data['memories'].append({
+            'date': today,
+            'title': point[:100],
+            'preview': point[:150],
+            'category': 'daily',
+            'content': point[:300],
+        })
+
+    data['memories'] = data['memories'][-200:]
+    save_dashboard_data(data)
 
 def add_thought_from_log():
     """Add recent thought from thought-log.md"""
