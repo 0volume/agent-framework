@@ -1,354 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Framework Dashboard</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        :root {
-            --bg-dark: #0d1117;
-            --bg-card: #161b22;
-            --bg-hover: #21262d;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --text-muted: #8b949e;
-            --search: #58a6ff;
-            --verify: #d29922;
-            --summarize: #3fb950;
-            --security: #f85149;
-            --sol: #a371f7;
-            --accent: #58a6ff;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text);
-            padding: 15px;
-            min-height: 100vh;
-        }
-        
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        h1 { font-size: 1.2rem; }
-        
-        .live-badge {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.75rem;
-            color: var(--summarize);
-        }
-        
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--summarize);
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        
-        /* SOL SECTION */
-        .sol-section {
-            background: linear-gradient(135deg, rgba(163,113,247,0.15) 0%, rgba(163,113,247,0.05) 100%);
-            border: 2px solid var(--sol);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .sol-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .sol-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--sol);
-        }
-        
-        .sol-stats {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
-        
-        .sol-feed {
-            max-height: 280px;
-            overflow-y: auto;
-        }
-        
-        .activity-row {
-            display: flex;
-            gap: 10px;
-            padding: 8px 12px;
-            background: var(--bg-card);
-            border-left: 3px solid var(--sol);
-            margin-bottom: 6px;
-            border-radius: 0 6px 6px 0;
-            font-size: 0.8rem;
-        }
-        
-        .activity-row.reasoning { border-left-color: #f0883e; }
-        .activity-row.action { border-left-color: var(--search); }
-        .activity-row.decision { border-left-color: #ff7b72; }
-        .activity-row.message { border-left-color: #79c0ff; }
-        .activity-row.thinking { border-left-color: #a371f7; }
-        
-        .act-time { color: var(--text-muted); font-size: 0.7rem; min-width: 45px; }
-        .act-type { 
-            font-size: 0.6rem; text-transform: uppercase; 
-            padding: 2px 5px; border-radius: 3px; 
-            background: var(--bg-hover); color: var(--text-muted);
-            min-width: 55px; text-align: center;
-        }
-        .activity-row.message .act-type { background: rgba(121,192,255,0.2); color: #79c0ff; }
-        .activity-row.thinking .act-type { background: rgba(163,113,247,0.2); color: var(--sol); }
-        
-        .act-content { flex: 1; line-height: 1.3; }
-        
-        /* SUB-AGENTS */
-        .section-title {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-        }
-        
-        .agents-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-        }
-        
-        .agent-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .agent-header {
-            padding: 10px 12px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .agent-header.search { border-left: 4px solid var(--search); }
-        .agent-header.verify { border-left: 4px solid var(--verify); }
-        .agent-header.summarize { border-left: 4px solid var(--summarize); }
-        .agent-header.security { border-left: 4px solid var(--security); }
-        
-        .agent-status {
-            font-size: 0.6rem;
-            padding: 2px 6px;
-            border-radius: 8px;
-            background: var(--bg-hover);
-            color: var(--text-muted);
-        }
-        
-        .agent-status.active { background: rgba(63,185,80,0.2); color: var(--summarize); }
-        
-        .agent-entries {
-            padding: 8px;
-            max-height: 120px;
-            overflow-y: auto;
-        }
-        
-        .agent-entry {
-            font-size: 0.7rem;
-            padding: 5px 8px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            gap: 6px;
-        }
-        
-        .agent-entry:last-child { border-bottom: none; }
-        
-        .ae-time { color: var(--text-muted); font-size: 0.65rem; }
-        .ae-icon { font-size: 0.75rem; }
-        .ae-text { color: var(--text-muted); flex: 1; }
-        
-        .no-activity {
-            padding: 20px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.75rem;
-        }
-        
-        /* METRICS */
-        .metrics {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .metric {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-        }
-        
-        .metric-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
-        .metric-value { font-size: 1rem; font-weight: 600; }
-        
-        .footer {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            margin-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Framework Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root{
+      --bg:#0d1117; --card:#161b22; --hover:#21262d; --border:#30363d;
+      --text:#c9d1d9; --muted:#8b949e;
+      --sol:#a371f7; --search:#58a6ff; --verify:#d29922; --summ:#3fb950; --sec:#f85149;
+      --warn:#f0883e;
+    }
+    body{ margin:0; padding:16px; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;
+      padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);}    
+    h1{margin:0;font-size:1.2rem;}
+    .live{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem;}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--summ);animation:pulse 1.6s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+    .tab{cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);
+      padding:8px 12px;border-radius:8px;font-size:.8rem;user-select:none;}
+    .tab.active{background:var(--hover);color:var(--text);border-color:#3b4450;}
+    .panel{display:none;}
+    .panel.active{display:block;}
+
+    .row{display:flex;gap:12px;flex-wrap:wrap;}
+    .metric{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+    .metric .k{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+    .metric .v{font-size:1rem;font-weight:650;margin-top:2px;}
+
+    /* SOL */
+    .sol{border:2px solid var(--sol);background:linear-gradient(135deg, rgba(163,113,247,.16), rgba(163,113,247,.05));
+      border-radius:14px;padding:14px;margin-bottom:14px;}
+    .solhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;}
+    .soltitle{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--sol);font-size:1.05rem;}
+    .pill{font-size:.7rem;padding:3px 10px;border-radius:999px;background:rgba(163,113,247,.18);color:var(--sol);}    
+    .feed{max-height:320px;overflow:auto;border-radius:10px;}
+    .act{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;background:var(--card);
+      border-left:3px solid var(--sol);margin-bottom:8px;border-radius:0 10px 10px 0;}
+    .act.reasoning{border-left-color:var(--warn);} 
+    .act.action{border-left-color:var(--search);} 
+    .act.decision{border-left-color:#ff7b72;} 
+    .act.message{border-left-color:#79c0ff;} 
+    .act.memory{border-left-color:#f778ba;} 
+    .act.improvement{border-left-color:#6ee7b7;} 
+    .t{min-width:54px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);font-size:.68rem;}
+    .ty{min-width:78px;text-transform:uppercase;font-size:.6rem;letter-spacing:.05em;color:var(--muted);
+      background:var(--hover);padding:2px 6px;border-radius:6px;text-align:center;}
+    .c{flex:1;line-height:1.32;font-size:.86rem;}
+    .empty{padding:22px;text-align:center;color:var(--muted);background:var(--card);
+      border:1px dashed var(--border);border-radius:10px;}
+
+    /* Agent tiles */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+    .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;}
+    .tile:hover{border-color:#3b4450;background:var(--hover);} 
+    .thead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-weight:700;font-size:.78rem;}
+    .thead.search{border-left:4px solid var(--search);} 
+    .thead.verify{border-left:4px solid var(--verify);} 
+    .thead.summarize{border-left:4px solid var(--summ);} 
+    .thead.security{border-left:4px solid var(--sec);} 
+    .thead.sol{border-left:4px solid var(--sol);} 
+    .status{font-size:.62rem;color:var(--muted);background:var(--bg);border:1px solid var(--border);
+      padding:2px 8px;border-radius:999px;}
+    .status.active{color:var(--summ);border-color:rgba(63,185,80,.35);background:rgba(63,185,80,.08);} 
+    .body{max-height:160px;overflow:auto;}
+    .mini{display:flex;gap:8px;padding:7px 10px;border-top:1px solid var(--border);font-size:.74rem;color:var(--muted);}    
+    .mini .mi{min-width:44px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.66rem;}
+    .mini .mx{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    /* History table */
+    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 12px;}
+    select,input{background:var(--card);border:1px solid var(--border);color:var(--text);
+      border-radius:10px;padding:8px 10px;font-size:.8rem;}
+    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    th,td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:.8rem;vertical-align:top;}
+    th{color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;text-align:left;background:rgba(255,255,255,.02);}    
+    tr:hover td{background:rgba(255,255,255,.02);} 
+    .badge{display:inline-block;font-size:.62rem;padding:2px 8px;border-radius:999px;background:var(--hover);color:var(--muted);border:1px solid var(--border);}    
+
+    .footer{margin-top:14px;color:var(--muted);font-size:.68rem;text-align:center;}
+    a{color:var(--search);text-decoration:none;} a:hover{text-decoration:underline;}
+  </style>
 </head>
 <body>
-    <header>
-        <h1>🤖 Agent Framework Dashboard</h1>
-        <div class="live-badge">
-            <span class="live-dot"></span>
-            LIVE
+  <header>
+    <h1>Agent Framework Dashboard</h1>
+    <div class="live"><span class="dot"></span><span>LIVE</span><span id="fetchTs"></span></div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="main">Main</div>
+    <div class="tab" data-tab="agents">Agents</div>
+    <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="thoughts">Thoughts</div>
+    <div class="tab" data-tab="memories">Memories</div>
+    <div class="tab" data-tab="improvements">Improvements</div>
+    <div class="tab" data-tab="system">System</div>
+  </div>
+
+  <!-- MAIN -->
+  <section class="panel active" id="panel-main">
+    <div class="sol">
+      <div class="solhead">
+        <div class="soltitle">🧠 SOL <span class="pill" id="solState">ACTIVE</span></div>
+        <div style="display:flex;gap:10px;color:var(--muted);font-size:.75rem;">
+          <div><span id="solCount">0</span> events</div>
+          <div>last: <span id="solLast">--</span></div>
         </div>
-    </header>
-    
-    <!-- SOL ACTIVITY -->
-    <div class="sol-section">
-        <div class="sol-header">
-            <span class="sol-title">🧠 SOL</span>
-            <span class="sol-stats" id="sol-stats">Loading...</span>
-        </div>
-        <div class="sol-feed" id="sol-feed">
-            <div class="no-activity">Waiting for activity...</div>
-        </div>
+      </div>
+      <div class="feed" id="solFeed"><div class="empty">Waiting for activity…</div></div>
     </div>
-    
-    <!-- METRICS -->
-    <div class="metrics">
-        <div class="metric">
-            <div class="metric-label">Tavily</div>
-            <div class="metric-value" id="tavily">--/5</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">LLM</div>
-            <div class="metric-value" id="llm">--/20</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Sol Activities</div>
-            <div class="metric-value" id="total-acts">0</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Last Update</div>
-            <div class="metric-value" id="last-update" style="font-size:0.8rem">--</div>
-        </div>
+
+    <div class="row" style="margin-bottom:12px;">
+      <div class="metric"><div class="k">Tavily (remaining/hr)</div><div class="v" id="mTavily">--/5</div></div>
+      <div class="metric"><div class="k">LLM calls (remaining/hr)</div><div class="v" id="mLlm">--/20</div></div>
+      <div class="metric"><div class="k">Sub-agents</div><div class="v" id="mAgents">4</div></div>
+      <div class="metric"><div class="k">Last update</div><div class="v" id="mLast">--</div></div>
     </div>
-    
-    <!-- SUB-AGENTS -->
-    <div class="section-title">Sub-Agents</div>
-    <div class="agents-grid" id="agents-grid">
-        <!-- Agents loaded by JS -->
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;">Sub-agents (always visible)</div>
+      <div style="color:var(--muted);font-size:.72rem;">Click tile → History</div>
     </div>
-    
-    <div class="footer">
-        Auto-refresh: 2s | READ-ONLY | Last fetch: <span id="fetch-time">--</span>
+    <div class="grid" id="agentTiles"></div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="panel" id="panel-agents">
+    <div class="grid" id="agentTiles2"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="panel" id="panel-history">
+    <div class="controls">
+      <select id="hAgent"></select>
+      <select id="hType">
+        <option value="">All types</option>
+      </select>
+      <input id="hSearch" placeholder="Search text…" />
+      <select id="hLimit">
+        <option value="50">50 rows</option>
+        <option value="100" selected>100 rows</option>
+        <option value="250">250 rows</option>
+        <option value="500">500 rows</option>
+      </select>
     </div>
-    
-    <script>
-        const ICONS = {
-            reasoning: '🔄', action: '⚡', thinking: '💭', decision: '🎯',
-            message: '💬', memory: '📝', result: '✓', error: '✗'
-        };
-        
-        const AGENT_INFO = {
-            search: { icon: '🔍', name: 'SEARCH', color: '#58a6ff' },
-            verify: { icon: '✓', name: 'VERIFY', color: '#d29922' },
-            summarize: { icon: '📝', name: 'SUMMARIZE', color: '#3fb950' },
-            security: { icon: '🔒', name: 'SECURITY', color: '#f85149' }
-        };
-        
-        async function loadData() {
-            try {
-                const r = await fetch('/data.json?_=' + Date.now());
-                const data = await r.json();
-                updateUI(data);
-                document.getElementById('fetch-time').textContent = new Date().toLocaleTimeString();
-            } catch(e) {
-                console.log('Error:', e);
-            }
-        }
-        
-        function updateUI(data) {
-            // Metrics
-            if (data.rate_limits) {
-                document.getElementById('tavily').textContent = (data.rate_limits.tavily?.remaining || '-') + '/5';
-                document.getElementById('llm').textContent = (data.rate_limits.llm?.remaining || '-') + '/20';
-            }
-            
-            // Sol feed
-            const solEntries = data.agents?.sol || [];
-            document.getElementById('sol-stats').textContent = solEntries.length + ' activities';
-            document.getElementById('total-acts').textContent = solEntries.length;
-            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-            
-            const feed = document.getElementById('sol-feed');
-            if (solEntries.length > 0) {
-                feed.innerHTML = solEntries.slice().reverse().slice(0, 20).map(e => 
-                    `<div class="activity-row ${e.type}">
-                        <span class="act-time">${e.timestamp}</span>
-                        <span class="act-type">${e.type}</span>
-                        <span class="act-content">${e.content || e.details || ''}</span>
-                    </div>`
-                ).join('');
-            } else {
-                feed.innerHTML = '<div class="no-activity">No activity yet</div>';
-            }
-            
-            // Sub-agents - ALWAYS SHOW
-            const grid = document.getElementById('agents-grid');
-            const agents = ['search', 'verify', 'summarize', 'security'];
-            
-            grid.innerHTML = agents.map(a => {
-                const info = AGENT_INFO[a];
-                const entries = data.agents?.[a] || [];
-                const hasActivity = entries.length > 0;
-                
-                return `
-                <div class="agent-card">
-                    <div class="agent-header ${a}" style="border-left-color: ${info.color}">
-                        <span>${info.icon} ${info.name}</span>
-                        <span class="agent-status ${hasActivity ? 'active' : ''}">${hasActivity ? 'ACTIVE' : 'IDLE'}</span>
-                    </div>
-                    <div class="agent-entries">
-                        ${entries.length > 0 ? entries.slice(-5).map(e => 
-                            `<div class="agent-entry">
-                                <span class="ae-time">${e.timestamp}</span>
-                                <span class="ae-icon">${ICONS[e.type] || '•'}</span>
-                                <span class="ae-text">${(e.content || e.details || '').substring(0,35)}</span>
-                            </div>`
-                        ).join('') : '<div class="no-activity" style="padding:15px">Idle</div>'}
-                    </div>
-                </div>`;
-            }).join('');
-        }
-        
-        loadData();
-        setInterval(loadData, 2000);
-    </script>
+    <table>
+      <thead><tr><th style="width:110px;">Time</th><th style="width:120px;">Agent</th><th style="width:120px;">Type</th><th>Content</th></tr></thead>
+      <tbody id="hBody"><tr><td colspan="4" class="empty" style="border:none">Select an agent to view history.</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- THOUGHTS -->
+  <section class="panel" id="panel-thoughts">
+    <div id="thoughtList" class="empty">No thoughts yet.</div>
+  </section>
+
+  <!-- MEMORIES -->
+  <section class="panel" id="panel-memories">
+    <div id="memoryList" class="empty">No memories yet.</div>
+  </section>
+
+  <!-- IMPROVEMENTS -->
+  <section class="panel" id="panel-improvements">
+    <div id="improveList" class="empty">No improvements yet.</div>
+  </section>
+
+  <!-- SYSTEM -->
+  <section class="panel" id="panel-system">
+    <div class="row">
+      <div class="metric"><div class="k">Phase</div><div class="v" id="sPhase">--</div></div>
+      <div class="metric"><div class="k">Cron jobs</div><div class="v" id="sCron">--</div></div>
+      <div class="metric"><div class="k">Dashboard mode</div><div class="v">READ-ONLY</div></div>
+      <div class="metric"><div class="k">Data</div><div class="v"><a href="/data.json" target="_blank">/data.json</a></div></div>
+    </div>
+    <div class="footer" style="text-align:left;margin-top:12px;">
+      Notes: no buttons/switches that send commands back. This page only reads data.
+    </div>
+  </section>
+
+  <div class="footer">Auto-refresh: 2s • Read-only • If you don’t see updates, hard-refresh (Ctrl+F5).</div>
+
+  <script>
+    const AGENTS = [
+      {key:'sol', name:'SOL', icon:'🧠', cls:'sol'},
+      {key:'search', name:'SEARCH', icon:'🔍', cls:'search'},
+      {key:'verify', name:'VERIFY', icon:'✓', cls:'verify'},
+      {key:'summarize', name:'SUMMARIZE', icon:'📝', cls:'summarize'},
+      {key:'security', name:'SECURITY', icon:'🔒', cls:'security'},
+    ];
+
+    const ICONS = { reasoning:'🔄', action:'⚡', thinking:'💭', decision:'🎯', message:'💬', memory:'📝', improvement:'✨', result:'✓', error:'✗', status:'•' };
+
+    let DATA = null;
+    let selectedAgent = 'sol';
+
+    function qs(sel){ return document.querySelector(sel); }
+    function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+    function setTabs(){
+      qsa('.tab').forEach(t=>{
+        t.addEventListener('click', ()=>{
+          qsa('.tab').forEach(x=>x.classList.remove('active'));
+          qsa('.panel').forEach(x=>x.classList.remove('active'));
+          t.classList.add('active');
+          qs('#panel-'+t.dataset.tab).classList.add('active');
+          if(t.dataset.tab==='history') renderHistory();
+        });
+      });
+    }
+
+    function safeTxt(s){
+      if(s===null||s===undefined) return '';
+      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    function normalizeEvent(agentKey, e){
+      return {
+        agent: agentKey,
+        type: e.type || 'status',
+        timestamp: e.timestamp || '',
+        full_timestamp: e.full_timestamp || '',
+        content: e.content || e.details || ''
+      };
+    }
+
+    function getAgentEvents(agentKey){
+      const a = DATA?.agents?.[agentKey] || [];
+      return a.map(e=>normalizeEvent(agentKey,e));
+    }
+
+    function allEvents(){
+      // prefer DATA.events if present (future), else derive from per-agent arrays
+      if(Array.isArray(DATA?.events) && DATA.events.length){
+        return DATA.events;
+      }
+      let ev=[];
+      AGENTS.forEach(a=>{ if(a.key!=='sol' && a.key!=='search' && a.key!=='verify' && a.key!=='summarize' && a.key!=='security') return; ev = ev.concat(getAgentEvents(a.key)); });
+      return ev;
+    }
+
+    function renderSol(){
+      const sol = getAgentEvents('sol');
+      qs('#solCount').textContent = sol.length;
+      qs('#solLast').textContent = sol.length ? sol[sol.length-1].timestamp : '--';
+      const feed = qs('#solFeed');
+      if(!sol.length){ feed.innerHTML = '<div class="empty">Waiting for activity…</div>'; return; }
+      const last = sol.slice(-25).reverse();
+      feed.innerHTML = last.map(e=>{
+        const ty = safeTxt(e.type);
+        const ct = safeTxt(e.content);
+        return `<div class="act ${ty}"><div class="t">${safeTxt(e.timestamp)}</div><div class="ty">${ty}</div><div class="c">${ct}</div></div>`;
+      }).join('');
+    }
+
+    function renderMetrics(){
+      const t = DATA?.rate_limits?.tavily; const l = DATA?.rate_limits?.llm;
+      qs('#mTavily').textContent = (t?.remaining ?? '-') + '/5';
+      qs('#mLlm').textContent = (l?.remaining ?? '-') + '/20';
+      qs('#mLast').textContent = new Date().toLocaleTimeString();
+
+      qs('#sPhase').textContent = DATA?.system?.phase || '--';
+      qs('#sCron').textContent = DATA?.system?.cron_jobs || '--';
+    }
+
+    function tileHTML(agentKey, name, icon, cls, entries){
+      const has = entries.length>0;
+      const status = has ? 'ACTIVE' : 'IDLE';
+      const stCls = has ? 'status active' : 'status';
+      const minis = (has ? entries.slice(-6) : []).map(e=>{
+        const ic = ICONS[e.type] || '•';
+        const tx = safeTxt((e.content||e.details||'').slice(0,140));
+        return `<div class="mini"><div class="mi">${safeTxt(e.timestamp)}</div><div>${ic}</div><div class="mx">${tx}</div></div>`;
+      }).join('');
+      const body = has ? minis : `<div class="no-activity">Idle</div>`;
+      return `<div class="tile" data-agent="${agentKey}">
+        <div class="thead ${cls}"><div>${icon} ${name}</div><div class="${stCls}">${status}</div></div>
+        <div class="body">${body}</div>
+      </div>`;
+    }
+
+    function renderTiles(){
+      const keys = ['search','verify','summarize','security'];
+      const tiles = keys.map(k=>{
+        const meta = AGENTS.find(a=>a.key===k);
+        const entries = getAgentEvents(k);
+        return tileHTML(k, meta.name, meta.icon, meta.cls, entries);
+      }).join('');
+      qs('#agentTiles').innerHTML = tiles;
+      qs('#agentTiles2').innerHTML = tiles;
+
+      // click → set selected agent + open history tab
+      qsa('.tile').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          selectedAgent = el.dataset.agent;
+          qs('#hAgent').value = selectedAgent;
+          // switch to history
+          qsa('.tab').forEach(x=>x.classList.remove('active'));
+          qsa('.panel').forEach(x=>x.classList.remove('active'));
+          qs('.tab[data-tab="history"]').classList.add('active');
+          qs('#panel-history').classList.add('active');
+          renderHistory();
+        });
+      });
+    }
+
+    function renderThoughts(){
+      const list = DATA?.thoughts || [];
+      const box = qs('#thoughtList');
+      if(!list.length){ box.className='empty'; box.textContent='No thoughts yet.'; return; }
+      box.className='';
+      box.innerHTML = list.slice(-30).reverse().map(t=>
+        `<div class="act ${safeTxt(t.type||'thought')}"><div class="t">${safeTxt((t.timestamp||'').slice(-5))}</div><div class="ty">${safeTxt(t.type||'thought')}</div><div class="c">${safeTxt(t.content||'')}</div></div>`
+      ).join('');
+    }
+
+    function renderMemories(){
+      const list = DATA?.memories || [];
+      const box = qs('#memoryList');
+      if(!list.length){ box.className='empty'; box.textContent='No memories yet.'; return; }
+      box.className='';
+      box.innerHTML = list.slice(-30).reverse().map(m=>
+        `<div class="act memory"><div class="t">${safeTxt(m.date||'')}</div><div class="ty">memory</div><div class="c"><b>${safeTxt(m.title||'')}</b><br/>${safeTxt(m.preview||m.content||'')}</div></div>`
+      ).join('');
+    }
+
+    function renderImprovements(){
+      const list = DATA?.improvements || [];
+      const box = qs('#improveList');
+      if(!list.length){ box.className='empty'; box.textContent='No improvements yet.'; return; }
+      box.className='';
+      box.innerHTML = list.slice(-30).reverse().map(i=>
+        `<div class="act improvement"><div class="t">${safeTxt((i.timestamp||'').slice(-5))}</div><div class="ty">improve</div><div class="c"><b>${safeTxt(i.title||'')}</b><br/>${safeTxt(i.content||'')}</div></div>`
+      ).join('');
+    }
+
+    function initHistoryControls(){
+      const agentSel = qs('#hAgent');
+      agentSel.innerHTML = AGENTS.map(a=>`<option value="${a.key}">${a.icon} ${a.name}</option>`).join('');
+      agentSel.value = selectedAgent;
+
+      agentSel.addEventListener('change', ()=>{ selectedAgent = agentSel.value; renderHistory(); });
+      qs('#hType').addEventListener('change', renderHistory);
+      qs('#hSearch').addEventListener('input', renderHistory);
+      qs('#hLimit').addEventListener('change', renderHistory);
+    }
+
+    function renderHistory(){
+      if(!DATA) return;
+      const agent = qs('#hAgent').value || selectedAgent;
+      const type = qs('#hType').value;
+      const q = qs('#hSearch').value.trim().toLowerCase();
+      const limit = parseInt(qs('#hLimit').value,10) || 100;
+
+      // Populate type dropdown (from events)
+      const types = Array.from(new Set(allEvents().map(e=>e.type))).sort();
+      const typeSel = qs('#hType');
+      const cur = typeSel.value;
+      typeSel.innerHTML = '<option value="">All types</option>' + types.map(t=>`<option value="${safeTxt(t)}">${safeTxt(t)}</option>`).join('');
+      typeSel.value = cur;
+
+      let ev = (agent==='all') ? allEvents() : getAgentEvents(agent);
+      if(type) ev = ev.filter(e=>e.type===type);
+      if(q) ev = ev.filter(e=>(e.content||'').toLowerCase().includes(q));
+      ev = ev.slice(-limit).reverse();
+
+      const body = qs('#hBody');
+      if(!ev.length){ body.innerHTML = `<tr><td colspan="4" class="empty" style="border:none">No history (filters too strict or no events yet).</td></tr>`; return; }
+      body.innerHTML = ev.map(e=>
+        `<tr>
+          <td>${safeTxt(e.timestamp)}</td>
+          <td>${safeTxt(e.agent)}</td>
+          <td><span class="badge">${safeTxt(e.type)}</span></td>
+          <td>${safeTxt(e.content)}</td>
+        </tr>`
+      ).join('');
+    }
+
+    async function fetchData(){
+      const r = await fetch('/data.json?_='+Date.now());
+      DATA = await r.json();
+      qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
+      renderMetrics();
+      renderSol();
+      renderTiles();
+      renderThoughts();
+      renderMemories();
+      renderImprovements();
+      // If history is visible, keep it live
+      if(qs('#panel-history').classList.contains('active')) renderHistory();
+    }
+
+    setTabs();
+    initHistoryControls();
+    fetchData();
+    setInterval(()=>fetchData().catch(()=>{}), 2000);
+  </script>
 </body>
 </html>
