@@ -1,0 +1,16 @@
+# Runtime/state files
+/dashboard_data.json
+/tailer_state.json
+/db/events.sqlite3
+
+# Logs / pid files
+*.out
+*.pid
+
+# Python bytecode
+__pycache__/
+*.pyc
+*/__pycache__/
+
+# OS
+.DS_Store
