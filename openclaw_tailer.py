@@ -297,9 +297,17 @@ def _parse_cognitive_log(text: str) -> list[tuple[str, str]]:
             continue
         if typ not in ("thought", "idea", "plan", "reflection", "decision", "risk", "insight"):
             continue
+
+        # Drop placeholders / empty-ish values
+        if content.strip() in ("-", "--", "—", "…", "n/a", "na"):
+            continue
+        if len(content.strip()) < 6:
+            continue
+
         # guardrails against code-ish content
         if content.startswith('_') or '()' in content or '`' in content:
             continue
+
         out.append((typ, _short(content, 220)))
         if len(out) >= 5:
             break
