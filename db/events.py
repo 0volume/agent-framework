@@ -4,9 +4,10 @@
 SQLite event store for the dashboard.
 Goal: scalable, queryable history across all agents and system events.
 
-Schema: events(id, ts, agent, type, summary, detail_json)
+Schema: events(id, ts, agent, type, summary, detail_text, detail_json)
 - summary: short string for live feed
-- detail_json: verbose payload for drill-down
+- detail_text: human-readable verbose detail for drill-down
+- detail_json: optional structured payload (kept small)
 
 No external deps (uses stdlib sqlite3).
 """
@@ -42,10 +43,19 @@ def init_db(con: sqlite3.Connection) -> None:
           agent TEXT NOT NULL,
           type TEXT NOT NULL,
           summary TEXT NOT NULL,
+          detail_text TEXT NOT NULL,
           detail_json TEXT NOT NULL
         );
         """
     )
+
+    # Migration: older DBs may lack new columns
+    cols = {r[1] for r in con.execute("PRAGMA table_info(events)").fetchall()}
+    if "detail_text" not in cols:
+        con.execute("ALTER TABLE events ADD COLUMN detail_text TEXT NOT NULL DEFAULT ''")
+    if "detail_json" not in cols:
+        con.execute("ALTER TABLE events ADD COLUMN detail_json TEXT NOT NULL DEFAULT '{}' ")
+
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_agent_ts ON events(agent, ts);")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_type_ts ON events(type, ts);")
@@ -56,11 +66,19 @@ def append_event(
     agent: str,
     typ: str,
     summary: str,
+    detail_text: str = "",
     detail: Optional[Dict[str, Any]] = None,
     ts: Optional[str] = None,
     db_path: Path = DB_PATH,
 ) -> int:
-    """Append a new event. Returns inserted event id."""
+    """Append a new event.
+
+    summary: short live-feed line
+    detail_text: human-readable drill-down text
+    detail: optional structured payload (keep small)
+
+    Returns inserted event id.
+    """
     if ts is None:
         ts = utc_now_iso()
     if detail is None:
@@ -71,6 +89,7 @@ def append_event(
         "agent": agent,
         "type": typ,
         "summary": summary,
+        "detail_text": detail_text,
         "detail": detail,
     }
 
@@ -78,8 +97,8 @@ def append_event(
     try:
         init_db(con)
         cur = con.execute(
-            "INSERT INTO events(ts, agent, type, summary, detail_json) VALUES(?,?,?,?,?)",
-            (ts, agent, typ, summary, json.dumps(payload, ensure_ascii=False)),
+            "INSERT INTO events(ts, agent, type, summary, detail_text, detail_json) VALUES(?,?,?,?,?,?)",
+            (ts, agent, typ, summary, detail_text, json.dumps(payload, ensure_ascii=False)),
         )
         con.commit()
         return int(cur.lastrowid)
@@ -116,7 +135,7 @@ def query_events(
         params.append(limit)
 
         rows = con.execute(
-            f"SELECT id, ts, agent, type, summary, detail_json FROM events {where} ORDER BY id DESC LIMIT ?",
+            f"SELECT id, ts, agent, type, summary, detail_text, detail_json FROM events {where} ORDER BY id DESC LIMIT ?",
             params,
         ).fetchall()
 
@@ -133,6 +152,7 @@ def query_events(
                     "agent": r["agent"],
                     "type": r["type"],
                     "summary": r["summary"],
+                    "detail_text": r["detail_text"],
                     "payload": payload,
                 }
             )

@@ -172,7 +172,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     try:
                         typ = entry.get('type', 'status')
                         summary = entry.get('content') or entry.get('details') or str(entry)[:200]
-                        append_event(agent=agent_name, typ=typ, summary=summary[:200], detail=entry)
+                        detail_text = entry.get('detail_text') or entry.get('details') or ''
+                        append_event(agent=agent_name, typ=typ, summary=summary[:200], detail_text=detail_text[:2000], detail=entry)
                     except Exception:
                         pass
 
