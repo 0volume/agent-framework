@@ -318,6 +318,82 @@ def _parse_cognitive_log(text: str) -> list[tuple[str, str]]:
     return out
 
 
+def _derive_journal_from_summary(text: str, user_request: str) -> list[tuple[str, str]]:
+    """Best-effort *grounded* journal derivation for automated runs.
+
+    Strict mode normally requires an explicit Journal/Cognitive log footer.
+    For scheduled runs (RAPP/TAR/dashboard review) we still want cognitive entries even if
+    the model forgot the Journal footer.
+
+    Policy:
+    - ONLY derive from *explicit* statements in the assistant text.
+    - No invented emotions, no claims about user reactions.
+    - Keep it short.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return []
+
+    low = text.lower()
+    req_low = (user_request or '').lower()
+
+    # Only attempt on clearly-automated prompts
+    automated = ('[cron:' in req_low) or req_low.startswith('tar task') or req_low.startswith('research task')
+    if not automated:
+        return []
+
+    out: list[tuple[str, str]] = []
+
+    # TAR summary parsing (most structured)
+    if 'tar summary' in low:
+        import re
+
+        m = re.search(r"\*\*paper selected:\*\*\s*(.+)", text, flags=re.I)
+        if m:
+            out.append(('thought', _short(f"TAR ran: {m.group(1).strip()}", 420)))
+
+        # Key insights (take up to 2)
+        if 'key insights extracted' in low:
+            # capture numbered list lines after the header
+            block = text.split('**Key insights extracted:**', 1)[1] if '**Key insights extracted:**' in text else ''
+            for ln in block.splitlines():
+                ln = ln.strip()
+                if not ln or not ln[0].isdigit():
+                    if out and len(out) >= 3:
+                        break
+                    continue
+                # "1. **X** - Y" -> take the Y-ish part
+                ln = re.sub(r"^\d+\.\s*", '', ln)
+                ln = re.sub(r"\*\*(.*?)\*\*", r"\1", ln)
+                out.append(('thought', _short(ln, 420)))
+                if sum(1 for t,_ in out if t=='thought') >= 3:
+                    break
+
+        # Decision from Pitch line
+        m = re.search(r"\*\*pitch:\*\*\s*(.+)", text, flags=re.I)
+        if m:
+            out.append(('decision', _short(m.group(1).strip(), 420)))
+
+        # Plan from suggested dashboard changes
+        if '**Dashboard changes suggested:**' in text:
+            block = text.split('**Dashboard changes suggested:**', 1)[1]
+            for ln in block.splitlines():
+                ln = ln.strip()
+                if ln.startswith('- '):
+                    out.append(('plan', _short(ln[2:].strip(), 420)))
+                    break
+
+        # Risk: novelty / repetition (only if hinted by the text)
+        if 'deeper insights needed' in low:
+            out.append(('risk', _short('Early-stage note: deeper stages still needed before pitching/acting.', 420)))
+
+    # RAPP-style parsing (less structured)
+    elif 'rapp' in low or 'research task' in low:
+        out.append(('thought', _short('Automated research run completed; see activity detail for sources and changes.', 420)))
+
+    # Cap to a small number
+    return out[:6]
+
+
 def _worklog_from_tool_calls(tool_calls: list[dict]) -> list[str]:
     """Derive a small set of human-readable worklog lines from tool calls.
 
@@ -477,6 +553,8 @@ class TurnAccumulator:
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
 
             cog = _parse_cognitive_log(rt)
+            if not cog:
+                cog = _derive_journal_from_summary(rt, user_clean)
 
             rt_lines = [ln.strip() for ln in (rt or '').splitlines() if ln.strip()]
             allow_prefixes = (

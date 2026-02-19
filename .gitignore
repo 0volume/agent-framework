@@ -6,6 +6,7 @@
 # Logs / pid files
 *.out
 *.pid
+/logs/
 
 # Python bytecode
 __pycache__/
