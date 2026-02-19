@@ -183,10 +183,29 @@
       <div class="metric"><div class="k">Phase</div><div class="v" id="sPhase">--</div></div>
       <div class="metric"><div class="k">Cron jobs</div><div class="v" id="sCron">--</div></div>
       <div class="metric"><div class="k">Dashboard mode</div><div class="v">READ-ONLY</div></div>
-      <div class="metric"><div class="k">Data</div><div class="v"><a href="/data.json" target="_blank">/data.json</a></div></div>
+      <div class="metric"><div class="k">Data</div><div class="v"><a href="/data.json" target="_blank">/data.json</a> · <a href="/sys.json" target="_blank">/sys.json</a></div></div>
     </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
+        <div class="k">CPU Load (1m/5m/15m)</div>
+        <div class="v" id="sysLoad">--</div>
+        <canvas id="chartLoad" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
+      </div>
+      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
+        <div class="k">Memory Available</div>
+        <div class="v" id="sysMemAvail">--</div>
+        <canvas id="chartMem" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
+      </div>
+      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
+        <div class="k">Disk Free (/)</div>
+        <div class="v" id="sysDiskFree">--</div>
+        <canvas id="chartDisk" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
+      </div>
+    </div>
+
     <div class="footer" style="text-align:left;margin-top:12px;">
-      Notes: no buttons/switches that send commands back. This page only reads data.
+      Live hardware metrics are fetched from <code>/sys.json</code> every 2s (no LLM involved). Not stored long-term.
     </div>
   </section>
 
@@ -218,6 +237,14 @@
 
     let DATA = null;
     let selectedAgent = 'sol';
+
+    // Live system metrics history (browser-only, not stored)
+    const SYS_HIST = {
+      load1: [],
+      memAvailMb: [],
+      diskFreeGb: [],
+      max: 120, // last ~4 minutes at 2s
+    };
 
     function qs(sel){ return document.querySelector(sel); }
     function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
@@ -422,7 +449,12 @@
       const m = qs('#modal');
       qs('#modalTitle').textContent = title;
       try {
-        qs('#modalBody').textContent = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
+        // Prefer a nice human string if provided
+        if (obj && typeof obj === 'object' && obj.detail_text) {
+          qs('#modalBody').textContent = obj.detail_text;
+        } else {
+          qs('#modalBody').textContent = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
+        }
       } catch {
         qs('#modalBody').textContent = String(obj);
       }
@@ -449,6 +481,89 @@
         });
       }
     });
+
+    function fmtBytes(n){
+      if(n===null||n===undefined) return '--';
+      const u=['B','KB','MB','GB','TB'];
+      let x=Number(n); let i=0;
+      while(x>=1024 && i<u.length-1){ x/=1024; i++; }
+      return (i>=2? x.toFixed(1): Math.round(x)) + ' ' + u[i];
+    }
+
+    function drawSpark(canvasId, values, color){
+      const c = qs('#'+canvasId);
+      if(!c) return;
+      const ctx = c.getContext('2d');
+      const w = c.width, h = c.height;
+      ctx.clearRect(0,0,w,h);
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(0,0,w,h);
+      if(!values.length) return;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const span = (max-min) || 1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      values.forEach((v, idx)=>{
+        const x = idx * (w/(Math.max(values.length-1,1)));
+        const y = h - ((v-min)/span) * (h-6) - 3;
+        if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    }
+
+    async function fetchSys(){
+      let sys;
+      try {
+        const r = await fetch('/sys.json?_='+Date.now(), { cache: 'no-store' });
+        sys = await r.json();
+      } catch (e) {
+        // don't spam footer; just fail quietly
+        return;
+      }
+
+      // Update cards
+      if(sys.loadavg){
+        qs('#sysLoad').textContent = `${sys.loadavg['1m']} / ${sys.loadavg['5m']} / ${sys.loadavg['15m']}`;
+        SYS_HIST.load1.push(Number(sys.loadavg['1m'])||0);
+      }
+      if(sys.meminfo && sys.meminfo.MemAvailable){
+        const kb = parseFloat(sys.meminfo.MemAvailable.split(' ')[0]);
+        const mb = kb/1024;
+        qs('#sysMemAvail').textContent = `${mb.toFixed(0)} MB`;
+        SYS_HIST.memAvailMb.push(mb);
+      }
+      if(sys.disk_root){
+        const free = sys.disk_root.free_bytes;
+        qs('#sysDiskFree').textContent = fmtBytes(free);
+        SYS_HIST.diskFreeGb.push(free/1024/1024/1024);
+      }
+
+      // Trim
+      for(const k of ['load1','memAvailMb','diskFreeGb']){
+        if(SYS_HIST[k].length > SYS_HIST.max) SYS_HIST[k] = SYS_HIST[k].slice(-SYS_HIST.max);
+      }
+
+      // Draw graphs
+      drawSpark('chartLoad', SYS_HIST.load1.slice(-60), '#58a6ff');
+      drawSpark('chartMem', SYS_HIST.memAvailMb.slice(-60), '#3fb950');
+      drawSpark('chartDisk', SYS_HIST.diskFreeGb.slice(-60), '#d29922');
+
+      // Make system cards drillable
+      qsAllDrill();
+      window.__lastSys = sys;
+    }
+
+    function qsAllDrill(){
+      document.querySelectorAll('[data-drill="sys"]').forEach(el=>{
+        if(el.__bound) return;
+        el.__bound = true;
+        el.addEventListener('click', ()=>{
+          if(window.__lastSys) openModal('System details', {detail_text: JSON.stringify(window.__lastSys, null, 2)});
+        });
+      });
+    }
 
     async function fetchData(){ 
       // Separate: fetch/parsing vs rendering errors.
@@ -483,7 +598,9 @@
     setTabs();
     initHistoryControls();
     fetchData();
+    fetchSys();
     setInterval(()=>fetchData().catch(()=>{}), 2000);
+    setInterval(()=>fetchSys().catch(()=>{}), 2000);
   </script>
 </body>
 </html>
