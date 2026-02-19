@@ -323,7 +323,10 @@ class TurnAccumulator:
             import re
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
             rt = ' '.join(rt.split())
-            lines.append("- " + _short(rt, 320))
+            # Prefer first 1-2 sentences over a hard cut
+            parts = re.split(r"(?<=[.!?])\s+", rt)
+            short = ' '.join(parts[:2]).strip() if parts else rt
+            lines.append("- " + _short(short, 520))
 
         lines.append("")
         lines.append("What I plan next")
@@ -385,11 +388,22 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
             ACC.add_tool_call(tc.get('name'), tc.get('arguments') or {})
         if thinking_snips:
             ACC.add_thinking(thinking_snips)
-            # Also store as standalone Thoughts items for the Thoughts tab (human-readable snippets)
+
+            # Emit immediate granular thought events (so the feed moves during work)
             try:
                 d = load_dashboard(dashboard_path)
-                d.setdefault('thoughts', [])
                 for sn in thinking_snips[-2:]:
+                    append_sol(
+                        d,
+                        'thought',
+                        'Thinking about the request',
+                        detail_text=(
+                            'High-level thinking\n'
+                            '- ' + sn
+                        ),
+                    )
+                    # Also store in Thoughts tab
+                    d.setdefault('thoughts', [])
                     d['thoughts'].append({
                         'timestamp': now_ts(),
                         'type': 'high_level_thinking',
