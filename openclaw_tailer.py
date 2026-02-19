@@ -352,8 +352,11 @@ class TurnAccumulator:
         # Emit fewer, higher-signal events.
         events: list[tuple[str, str, str]] = []
 
-        # A single thought event to anchor the turn, but without templated filler.
-        events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
+        # A single intent/thought event to anchor the turn, but avoid repeating the same one.
+        global LAST_INTENT
+        if summary and summary != LAST_INTENT:
+            events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
+            LAST_INTENT = summary
 
         # Full drill-down event.
         events.append(('activity', summary, detail_text))
@@ -363,6 +366,9 @@ class TurnAccumulator:
 
 # One accumulator for the current tailed file
 ACC = TurnAccumulator()
+
+# Prevent boring repetition in the stream when consecutive turns share the same topic.
+LAST_INTENT: str | None = None
 
 
 def event_summary(obj: dict):
