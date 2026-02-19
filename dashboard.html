@@ -140,6 +140,8 @@
       cursor:pointer;
       transition: background .15s ease;
     }
+    .evt.compact{ grid-template-columns: 86px 1fr; }
+    .evt.compact .ts{ display:none; }
     .evt:hover{ background: rgba(255,255,255,.04); }
     .ts{ font-family:var(--mono); font-size:.68rem; color:var(--muted); }
     .tag{
@@ -485,17 +487,17 @@
       return map[x] || x || 'status';
     }
 
-    function evtRow(e){
+    function evtRow(e, compact=false){
       const ts = (e.timestamp || '').toString();
       const rawType = (e.type || 'status').toString();
       const tag = niceType(rawType);
       const summary = (e.content || e.summary || '').toString();
       const detail = (e.details || e.detail_text || '').toString();
 
-      // Keep the feed clean: timestamp stays small, summary is the only main text.
+      // Overview feed: no timestamps (compact=true)
       return `
-        <div class="evt" data-detail="${safe(detail||summary)}" data-title="${safe(tag)}">
-          <div class="ts">${safe(ts)}</div>
+        <div class="evt ${compact ? 'compact' : ''}" data-detail="${safe(detail||summary)}" data-title="${safe(tag)}">
+          ${compact ? `` : `<div class="ts">${safe(ts)}</div>`}
           <div class="tag ${safe(tag)}">${safe(tag)}</div>
           <div>
             <div class="summary">${safe(summary)}</div>
@@ -512,7 +514,7 @@
       const inner = qs('#solFeedInner');
       if(!sol.length){ qs('#solEmpty').style.display='block'; inner.innerHTML=''; return; }
       qs('#solEmpty').style.display='none';
-      const rows = sol.slice(-30).reverse().map(evtRow).join('');
+      const rows = sol.slice(-30).reverse().map(e=>evtRow(e, true)).join('');
       inner.innerHTML = rows;
     }
 
