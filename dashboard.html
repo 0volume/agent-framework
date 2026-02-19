@@ -276,9 +276,19 @@
     }
 
     function tileHTML(agentKey, name, icon, cls, entries){
+      // Active should mean *recent* activity, not just "has any history".
+      const lastTs = entries.length ? (entries[entries.length-1].full_timestamp || '') : '';
+      let isRecent = false;
+      if(lastTs){
+        const t = Date.parse(lastTs);
+        if(!Number.isNaN(t)){
+          const ageMs = Date.now() - t;
+          isRecent = ageMs < 2*60*1000; // 2 minutes
+        }
+      }
       const has = entries.length>0;
-      const status = has ? 'ACTIVE' : 'IDLE';
-      const stCls = has ? 'status active' : 'status';
+      const status = isRecent ? 'ACTIVE' : (has ? 'IDLE (stale)' : 'IDLE');
+      const stCls = isRecent ? 'status active' : 'status';
       const minis = (has ? entries.slice(-6) : []).map(e=>{
         const ic = ICONS[e.type] || '•';
         const tx = safeTxt((e.content||e.details||'').slice(0,140));
