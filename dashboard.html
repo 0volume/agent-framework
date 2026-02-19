@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent Framework Dashboard</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         
         :root {
             --bg-dark: #0d1117;
@@ -26,8 +26,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-dark);
             color: var(--text);
-            margin: 0;
-            padding: 20px;
+            padding: 15px;
             min-height: 100vh;
         }
         
@@ -35,140 +34,105 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border);
         }
         
-        h1 { margin: 0; font-size: 1.5rem; }
-        h2 { margin: 0 0 15px 0; font-size: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        h1 { font-size: 1.2rem; }
         
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .tab {
-            padding: 10px 20px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px 6px 0 0;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-        
-        .tab:hover { background: var(--bg-hover); }
-        .tab.active { background: var(--bg-hover); border-bottom-color: var(--bg-hover); }
-        
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .status-bar {
-            display: flex;
-            gap: 20px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-        
-        .status-item {
+        .live-badge {
             display: flex;
             align-items: center;
             gap: 6px;
+            font-size: 0.75rem;
+            color: var(--summarize);
         }
         
-        .status-dot {
+        .live-dot {
             width: 8px;
             height: 8px;
-            border-radius: 50%;
             background: var(--summarize);
-            animation: pulse 2s infinite;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
         }
         
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         
-        /* SOL SECTION - Prominent */
+        /* SOL SECTION */
         .sol-section {
-            background: linear-gradient(135deg, rgba(163,113,247,0.1) 0%, rgba(163,113,247,0.05) 100%);
+            background: linear-gradient(135deg, rgba(163,113,247,0.15) 0%, rgba(163,113,247,0.05) 100%);
             border: 2px solid var(--sol);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 25px;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
         }
         
         .sol-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         
         .sol-title {
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--sol);
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
         
-        .sol-title::before {
-            content: '🧠';
-            font-size: 1.5rem;
+        .sol-stats {
+            font-size: 0.7rem;
+            color: var(--text-muted);
         }
         
-        .sol-status {
-            font-size: 0.8rem;
-            padding: 4px 12px;
-            background: rgba(163,113,247,0.2);
-            color: var(--sol);
-            border-radius: 20px;
-        }
-        
-        .sol-thoughts {
-            max-height: 250px;
+        .sol-feed {
+            max-height: 280px;
             overflow-y: auto;
         }
         
-        .sol-thought {
-            padding: 12px 16px;
+        .activity-row {
+            display: flex;
+            gap: 10px;
+            padding: 8px 12px;
             background: var(--bg-card);
             border-left: 3px solid var(--sol);
-            margin-bottom: 10px;
-            border-radius: 0 8px 8px 0;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        
-        .sol-thought .meta {
-            font-size: 0.7rem;
-            color: var(--text-muted);
             margin-bottom: 6px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.8rem;
         }
         
-        .sol-thought .content {
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
+        .activity-row.reasoning { border-left-color: #f0883e; }
+        .activity-row.action { border-left-color: var(--search); }
+        .activity-row.decision { border-left-color: #ff7b72; }
+        .activity-row.message { border-left-color: #79c0ff; }
+        .activity-row.thinking { border-left-color: #a371f7; }
         
-        .sol-thought.reasoning {
-            border-left-color: #f0883e;
-            background: linear-gradient(90deg, rgba(240,136,62,0.1) 0%, var(--bg-card) 100%);
+        .act-time { color: var(--text-muted); font-size: 0.7rem; min-width: 45px; }
+        .act-type { 
+            font-size: 0.6rem; text-transform: uppercase; 
+            padding: 2px 5px; border-radius: 3px; 
+            background: var(--bg-hover); color: var(--text-muted);
+            min-width: 55px; text-align: center;
         }
+        .activity-row.message .act-type { background: rgba(121,192,255,0.2); color: #79c0ff; }
+        .activity-row.thinking .act-type { background: rgba(163,113,247,0.2); color: var(--sol); }
+        
+        .act-content { flex: 1; line-height: 1.3; }
         
         /* SUB-AGENTS */
+        .section-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
         .agents-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
         }
         
         .agent-card {
@@ -179,165 +143,78 @@
         }
         
         .agent-header {
-            padding: 10px 14px;
+            padding: 10px 12px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .agent-header.search { border-left: 3px solid var(--search); }
-        .agent-header.verify { border-left: 3px solid var(--verify); }
-        .agent-header.summarize { border-left: 3px solid var(--summarize); }
-        .agent-header.security { border-left: 3px solid var(--security); }
+        .agent-header.search { border-left: 4px solid var(--search); }
+        .agent-header.verify { border-left: 4px solid var(--verify); }
+        .agent-header.summarize { border-left: 4px solid var(--summarize); }
+        .agent-header.security { border-left: 4px solid var(--security); }
         
-        .agent-header .status {
-            font-size: 0.7rem;
-            padding: 2px 8px;
-            border-radius: 10px;
+        .agent-status {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 8px;
             background: var(--bg-hover);
+            color: var(--text-muted);
         }
         
-        .agent-header .status.active {
-            background: rgba(63, 185, 80, 0.2);
-            color: var(--summarize);
-        }
+        .agent-status.active { background: rgba(63,185,80,0.2); color: var(--summarize); }
         
-        .agent-content {
-            padding: 0;
-            max-height: 200px;
+        .agent-entries {
+            padding: 8px;
+            max-height: 120px;
             overflow-y: auto;
         }
         
-        .entry {
-            padding: 8px 14px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
-            display: flex;
-            gap: 8px;
-        }
-        
-        .entry:last-child { border-bottom: none; }
-        
-        .entry-time {
-            color: var(--text-muted);
+        .agent-entry {
             font-size: 0.7rem;
-            min-width: 45px;
-        }
-        
-        .entry-icon {
-            font-size: 0.85rem;
-        }
-        
-        .entry-content {
-            flex: 1;
-            word-break: break-word;
-        }
-        
-        .entry.thought .entry-icon { color: #a371f7; }
-        .entry.action .entry-icon { color: var(--search); }
-        .entry.result .entry-icon { color: var(--text-muted); }
-        .entry.success .entry-icon { color: var(--summarize); }
-        
-        .system-status {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 20px;
+            padding: 5px 8px;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            gap: 30px;
+            gap: 6px;
+        }
+        
+        .agent-entry:last-child { border-bottom: none; }
+        
+        .ae-time { color: var(--text-muted); font-size: 0.65rem; }
+        .ae-icon { font-size: 0.75rem; }
+        .ae-text { color: var(--text-muted); flex: 1; }
+        
+        .no-activity {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+        
+        /* METRICS */
+        .metrics {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
             flex-wrap: wrap;
         }
         
         .metric {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        
-        .metric-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-        
-        .metric-value {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        
-        .live-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.75rem;
-            color: var(--summarize);
-        }
-        
-        .live-indicator::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: var(--summarize);
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .empty-state {
-            padding: 30px;
-            text-align: center;
-            color: var(--text-muted);
-        }
-        
-        .insight-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 15px;
+            border-radius: 6px;
+            padding: 8px 12px;
         }
         
-        .insight-card .meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
+        .metric-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
+        .metric-value { font-size: 1rem; font-weight: 600; }
         
-        .insight-card .title {
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .insight-card .content {
-            font-size: 0.85rem;
-            color: var(--text);
-        }
-        
-        .thought-stream {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 15px;
-        }
-        
-        .thought-stream .timestamp {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
-        
-        .thought-stream .content {
-            margin-top: 8px;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-        
-        .refresh-info {
+        .footer {
             text-align: center;
             color: var(--text-muted);
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             margin-top: 20px;
         }
     </style>
@@ -345,238 +222,133 @@
 <body>
     <header>
         <h1>🤖 Agent Framework Dashboard</h1>
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="status-dot"></span>
-                <span class="live-indicator">LIVE</span>
-            </div>
+        <div class="live-badge">
+            <span class="live-dot"></span>
+            LIVE
         </div>
     </header>
     
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('main')">Main</div>
-        <div class="tab" onclick="switchTab('thoughts')">Thoughts</div>
-        <div class="tab" onclick="switchTab('system')">System</div>
-    </div>
-    
-    <!-- MAIN TAB -->
-    <div id="tab-main" class="tab-content active">
-        
-        <!-- SOL SECTION - TOP -->
-        <div class="sol-section">
-            <div class="sol-header">
-                <span class="sol-title">SOL</span>
-                <span class="sol-status">ACTIVE</span>
-            </div>
-            <div class="sol-thoughts" id="sol-thoughts">
-                <div class="empty-state">Loading thoughts...</div>
-            </div>
+    <!-- SOL ACTIVITY -->
+    <div class="sol-section">
+        <div class="sol-header">
+            <span class="sol-title">🧠 SOL</span>
+            <span class="sol-stats" id="sol-stats">Loading...</span>
         </div>
-        
-        <!-- SUB-AGENTS -->
-        <h2>Sub-Agents</h2>
-        <div class="system-status" id="metrics">
-            <div class="metric">
-                <span class="metric-label">Tavily</span>
-                <span class="metric-value" id="tavily-status">--/5</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">LLM</span>
-                <span class="metric-value" id="llm-status">--/20</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Active</span>
-                <span class="metric-value" id="active-agents">0</span>
-            </div>
-        </div>
-        
-        <div class="agents-grid">
-            <div class="agent-card">
-                <div class="agent-header search">
-                    <span>🔍 SEARCH</span>
-                    <span class="status" id="search-status">IDLE</span>
-                </div>
-                <div class="agent-content" id="search-content">
-                    <div class="empty-state">Waiting...</div>
-                </div>
-            </div>
-            
-            <div class="agent-card">
-                <div class="agent-header verify">
-                    <span>✓ VERIFY</span>
-                    <span class="status" id="verify-status">IDLE</span>
-                </div>
-                <div class="agent-content" id="verify-content">
-                    <div class="empty-state">Waiting...</div>
-                </div>
-            </div>
-            
-            <div class="agent-card">
-                <div class="agent-header summarize">
-                    <span>📝 SUMMARIZE</span>
-                    <span class="status" id="summarize-status">IDLE</span>
-                </div>
-                <div class="agent-content" id="summarize-content">
-                    <div class="empty-state">Waiting...</div>
-                </div>
-            </div>
-            
-            <div class="agent-card">
-                <div class="agent-header security">
-                    <span>🔒 SECURITY</span>
-                    <span class="status" id="security-status">IDLE</span>
-                </div>
-                <div class="agent-content" id="security-content">
-                    <div class="empty-state">Monitoring...</div>
-                </div>
-            </div>
+        <div class="sol-feed" id="sol-feed">
+            <div class="no-activity">Waiting for activity...</div>
         </div>
     </div>
     
-    <!-- THOUGHTS TAB -->
-    <div id="tab-thoughts" class="tab-content">
-        <h2>All Thoughts & Insights</h2>
-        <div id="thoughts-content">
-            <div class="empty-state">Loading...</div>
+    <!-- METRICS -->
+    <div class="metrics">
+        <div class="metric">
+            <div class="metric-label">Tavily</div>
+            <div class="metric-value" id="tavily">--/5</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">LLM</div>
+            <div class="metric-value" id="llm">--/20</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Sol Activities</div>
+            <div class="metric-value" id="total-acts">0</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Last Update</div>
+            <div class="metric-value" id="last-update" style="font-size:0.8rem">--</div>
         </div>
     </div>
     
-    <!-- SYSTEM TAB -->
-    <div id="tab-system" class="tab-content">
-        <h2>Framework Status</h2>
-        <div class="system-status">
-            <div class="metric">
-                <span class="metric-label">Phase</span>
-                <span class="metric-value" id="phase">--</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">GitHub</span>
-                <span class="metric-value">Connected</span>
-            </div>
-        </div>
-        
-        <h2>Recent Improvements</h2>
-        <div id="improvements-content">
-            <div class="empty-state">Loading...</div>
-        </div>
+    <!-- SUB-AGENTS -->
+    <div class="section-title">Sub-Agents</div>
+    <div class="agents-grid" id="agents-grid">
+        <!-- Agents loaded by JS -->
     </div>
     
-    <div class="refresh-info">
-        Auto-refreshing every 3 seconds | READ-ONLY
+    <div class="footer">
+        Auto-refresh: 2s | READ-ONLY | Last fetch: <span id="fetch-time">--</span>
     </div>
     
     <script>
         const ICONS = {
-            thought: '💭',
-            action: '→',
-            result: '←',
-            success: '✓',
-            error: '✗',
-            info: '•',
-            reasoning: '🔄'
+            reasoning: '🔄', action: '⚡', thinking: '💭', decision: '🎯',
+            message: '💬', memory: '📝', result: '✓', error: '✗'
         };
         
-        let currentTab = 'main';
+        const AGENT_INFO = {
+            search: { icon: '🔍', name: 'SEARCH', color: '#58a6ff' },
+            verify: { icon: '✓', name: 'VERIFY', color: '#d29922' },
+            summarize: { icon: '📝', name: 'SUMMARIZE', color: '#3fb950' },
+            security: { icon: '🔒', name: 'SECURITY', color: '#f85149' }
+        };
         
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-            document.getElementById('tab-' + tab).classList.add('active');
-            currentTab = tab;
-        }
-        
-        async function fetchData() {
+        async function loadData() {
             try {
-                const resp = await fetch('/data.json?_=' + Date.now());
-                const data = await resp.json();
-                updateDashboard(data);
-            } catch (e) {
-                console.log('Waiting for data...');
+                const r = await fetch('/data.json?_=' + Date.now());
+                const data = await r.json();
+                updateUI(data);
+                document.getElementById('fetch-time').textContent = new Date().toLocaleTimeString();
+            } catch(e) {
+                console.log('Error:', e);
             }
         }
         
-        function updateDashboard(data) {
-            // Rate limits
+        function updateUI(data) {
+            // Metrics
             if (data.rate_limits) {
-                document.getElementById('tavily-status').textContent = 
-                    `${data.rate_limits.tavily?.remaining || '-'}/5`;
-                document.getElementById('llm-status').textContent = 
-                    `${data.rate_limits.llm?.remaining || '-'}/20`;
+                document.getElementById('tavily').textContent = (data.rate_limits.tavily?.remaining || '-') + '/5';
+                document.getElementById('llm').textContent = (data.rate_limits.llm?.remaining || '-') + '/20';
             }
             
-            // SOL THOUGHTS - Prominent display
+            // Sol feed
             const solEntries = data.agents?.sol || [];
-            const solContainer = document.getElementById('sol-thoughts');
+            document.getElementById('sol-stats').textContent = solEntries.length + ' activities';
+            document.getElementById('total-acts').textContent = solEntries.length;
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
             
+            const feed = document.getElementById('sol-feed');
             if (solEntries.length > 0) {
-                solContainer.innerHTML = solEntries.slice(-8).reverse().map(e => `
-                    <div class="sol-thought ${e.type}">
-                        <div class="meta">${e.timestamp || ''} • ${e.type || 'thought'}</div>
-                        <div class="content">${e.content || e.details || ''}</div>
-                    </div>
-                `).join('');
+                feed.innerHTML = solEntries.slice().reverse().slice(0, 20).map(e => 
+                    `<div class="activity-row ${e.type}">
+                        <span class="act-time">${e.timestamp}</span>
+                        <span class="act-type">${e.type}</span>
+                        <span class="act-content">${e.content || e.details || ''}</span>
+                    </div>`
+                ).join('');
             } else {
-                solContainer.innerHTML = '<div class="empty-state">Waiting for thoughts...</div>';
+                feed.innerHTML = '<div class="no-activity">No activity yet</div>';
             }
             
-            // Sub-agents
-            let activeCount = 0;
-            ['search', 'verify', 'summarize', 'security'].forEach(agent => {
-                const entries = data.agents?.[agent] || [];
-                const content = document.getElementById(agent + '-content');
-                const status = document.getElementById(agent + '-status');
+            // Sub-agents - ALWAYS SHOW
+            const grid = document.getElementById('agents-grid');
+            const agents = ['search', 'verify', 'summarize', 'security'];
+            
+            grid.innerHTML = agents.map(a => {
+                const info = AGENT_INFO[a];
+                const entries = data.agents?.[a] || [];
+                const hasActivity = entries.length > 0;
                 
-                if (entries.length > 0) {
-                    status.textContent = 'ACTIVE';
-                    status.classList.add('active');
-                    activeCount++;
-                    
-                    content.innerHTML = entries.slice(-8).map(e => `
-                        <div class="entry ${e.type}">
-                            <span class="entry-time">${e.timestamp || ''}</span>
-                            <span class="entry-icon">${ICONS[e.type] || ICONS.info}</span>
-                            <span class="entry-content">${e.content || e.details || ''}</span>
-                        </div>
-                    `).join('');
-                } else {
-                    status.textContent = 'IDLE';
-                    status.classList.remove('active');
-                    content.innerHTML = '<div class="empty-state">Waiting...</div>';
-                }
-            });
-            
-            document.getElementById('active-agents').textContent = activeCount;
-            
-            // Thoughts tab
-            if (data.thoughts) {
-                document.getElementById('thoughts-content').innerHTML = data.thoughts.slice(-10).reverse().map(t => `
-                    <div class="thought-stream">
-                        <div class="timestamp">${t.timestamp} • ${t.type || 'insight'}</div>
-                        <div class="content">${t.content}</div>
+                return `
+                <div class="agent-card">
+                    <div class="agent-header ${a}" style="border-left-color: ${info.color}">
+                        <span>${info.icon} ${info.name}</span>
+                        <span class="agent-status ${hasActivity ? 'active' : ''}">${hasActivity ? 'ACTIVE' : 'IDLE'}</span>
                     </div>
-                `).join('');
-            }
-            
-            // System tab
-            if (data.system) {
-                document.getElementById('phase').textContent = data.system.phase || '--';
-            }
-            
-            if (data.improvements) {
-                document.getElementById('improvements-content').innerHTML = data.improvements.slice(-5).reverse().map(i => `
-                    <div class="insight-card">
-                        <div class="meta">${i.timestamp}</div>
-                        <div class="title">${i.title}</div>
-                        <div class="content">${i.content}</div>
+                    <div class="agent-entries">
+                        ${entries.length > 0 ? entries.slice(-5).map(e => 
+                            `<div class="agent-entry">
+                                <span class="ae-time">${e.timestamp}</span>
+                                <span class="ae-icon">${ICONS[e.type] || '•'}</span>
+                                <span class="ae-text">${(e.content || e.details || '').substring(0,35)}</span>
+                            </div>`
+                        ).join('') : '<div class="no-activity" style="padding:15px">Idle</div>'}
                     </div>
-                `).join('');
-            }
+                </div>`;
+            }).join('');
         }
         
-        // Auto-refresh
-        fetchData();
-        setInterval(fetchData, 3000);
+        loadData();
+        setInterval(loadData, 2000);
     </script>
 </body>
 </html>
