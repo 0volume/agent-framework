@@ -536,6 +536,12 @@
     const DETAIL_STORE = new Map();
     let DETAIL_SEQ = 0;
 
+    function storeDetail(text){
+      const id = 'd' + (++DETAIL_SEQ);
+      DETAIL_STORE.set(id, (text||'').toString());
+      return id;
+    }
+
     function evtRow(e, compact=false){
       const ts = (e.timestamp || '').toString();
       const rawType = (e.type || 'status').toString();
@@ -544,8 +550,7 @@
       const detail = (e.details || e.detail_text || '').toString();
 
       // Avoid HTML attribute truncation by storing details in a JS map.
-      const id = 'd' + (++DETAIL_SEQ);
-      DETAIL_STORE.set(id, detail || summary);
+      const id = storeDetail(detail || summary);
 
       return `
         <div class="evt ${compact ? 'compact' : ''}" data-detail-id="${id}" data-title="${safe(tag)}">
@@ -581,7 +586,8 @@
         const title = (t.type || 'thought');
         const summary = (t.content || '');
         const detail = (t.detail_text || t.content || '');
-        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe((t.timestamp||'').slice(-5))}</div><div class="tag thinking">thought</div><div class="summary">${safe(summary)}</div></div>`;
+        const id = storeDetail(detail);
+        return `<div class="evt" data-title="${safe(title)}" data-detail-id="${id}"><div class="ts">${safe((t.timestamp||'').slice(-5))}</div><div class="tag thinking">thought</div><div class="summary">${safe(summary)}</div></div>`;
       });
     }
 
@@ -590,7 +596,8 @@
         const title = m.title || 'Memory';
         const summary = m.preview || m.content || '';
         const detail = m.content || m.preview || '';
-        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe(m.date||'')}</div><div class="tag memory">memory</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
+        const id = storeDetail(detail);
+        return `<div class="evt" data-title="${safe(title)}" data-detail-id="${id}"><div class="ts">${safe(m.date||'')}</div><div class="tag memory">memory</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
       });
     }
 
@@ -599,7 +606,8 @@
         const title = i.title || 'Improvement';
         const summary = i.content || '';
         const detail = i.detail_text || i.content || '';
-        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe((i.timestamp||'').slice(-5))}</div><div class="tag improvement">improve</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
+        const id = storeDetail(detail);
+        return `<div class="evt" data-title="${safe(title)}" data-detail-id="${id}"><div class="ts">${safe((i.timestamp||'').slice(-5))}</div><div class="tag improvement">improve</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
       });
     }
 
@@ -643,8 +651,9 @@
       body.innerHTML = rows.map(e=>{
         const dt = (e.detail_text || (e.payload && e.payload.detail_text) || '').toString();
         const title = `${e.agent} • ${e.type}`;
+        const id = storeDetail(dt || e.summary);
         return `
-          <tr class="hRow" data-title="${safe(title)}" data-detail="${safe(dt || e.summary)}" style="cursor:pointer;">
+          <tr class="hRow" data-title="${safe(title)}" data-detail-id="${id}" style="cursor:pointer;">
             <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:var(--muted);font-family:var(--mono);font-size:.72rem;">${safe((e.ts||'').replace('T',' ').slice(0,19))}</td>
             <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);">${safe(e.agent)}</td>
             <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:var(--muted);">${safe(e.type)}</td>
@@ -654,7 +663,10 @@
       }).join('');
 
       qsa('.hRow').forEach(r=>{
-        r.addEventListener('click', ()=> openModal(r.dataset.title, r.dataset.detail));
+        r.addEventListener('click', ()=>{
+          const txt = DETAIL_STORE.get(r.dataset.detailId) || '';
+          openModal(r.dataset.title, txt);
+        });
       });
     }
 
