@@ -340,7 +340,7 @@ class TurnAccumulator:
         events: list[tuple[str, str, str]] = []
 
         # 1) Thought (narrative)
-        events.append(('thought', f"How I interpreted it: {summary}", "\n".join([
+        events.append(('thought', f"D asked → my interpretation: {summary}", "\n".join([
             "Narrative",
             f"- D asked about: {summary}",
             "- I interpreted this as needing: a clear outcome + clean UX + stable/accurate telemetry",
