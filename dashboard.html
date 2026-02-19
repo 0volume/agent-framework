@@ -42,16 +42,29 @@
 
     header{
       display:flex; align-items:center; justify-content:space-between; gap:16px;
-      padding:14px 16px; margin-bottom:14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      padding:16px 20px; margin-bottom:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
       border:1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
 
     .brand{ display:flex; flex-direction:column; gap:2px; }
-    .brand h1{ margin:0; font-size:1.05rem; letter-spacing:.2px; }
-    .brand .sub{ font-size:.75rem; color:var(--muted); }
+    .brand h1{ margin:0; font-size:1.15rem; letter-spacing:.3px; font-weight:700; }
+    .brand .sub{ font-size:.72rem; color:var(--muted); }
+    
+    .brand-icon{
+      width:38px; height:38px;
+      background: linear-gradient(135deg, var(--accent), #a371f7);
+      border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:18px;
+      box-shadow:0 4px 12px rgba(88,166,255,.25);
+    }
+
+    .brand-wrapper{
+      display:flex; align-items:center; gap:12px;
+    }
 
     .right{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -80,7 +93,7 @@
       transition: all .15s ease;
     }
     .tab:hover{ background: rgba(255,255,255,.06); color:var(--text); }
-    .tab.active{ background: rgba(88,166,255,.14); border-color: rgba(88,166,255,.35); color:var(--text); }
+    .tab.active{ background: rgba(88,166,255,.14); border-color: rgba(88,166,255,.35); color:var(--text); box-shadow:0 2px 8px rgba(88,166,255,.15); }
 
     .panel{ display:none; }
     .panel.active{ display:block; }
@@ -228,12 +241,15 @@
 </head>
 <body>
   <header>
-    <div class="brand">
-      <h1>Agent Framework</h1>
-      <div class="sub">Read‑only monitoring • drill‑down everywhere • stable via systemd</div>
+    <div class="brand-wrapper">
+      <div class="brand-icon">◈</div>
+      <div class="brand">
+        <h1>Agent Framework</h1>
+        <div class="sub">Read‑only monitoring • drill‑down everywhere • stable via systemd</div>
+      </div>
     </div>
     <div class="right">
-      <div class="pill"><span class="dot"></span><span>LIVE</span></div>
+      <div class="pill" style="background:rgba(63,185,80,.1);border-color:rgba(63,185,80,.3);"><span class="dot"></span><span style="color:var(--good);font-weight:600;">LIVE</span></div>
       <div class="pill">Last refresh: <span id="fetchTs">--</span></div>
       <div class="pill"><span id="jsStatus">JS: loading…</span></div>
     </div>
@@ -274,7 +290,7 @@
           <div class="metric sysCard" data-drill="sys"><div class="k">Disk free (/)</div><div class="v" id="sysDiskFreeOv">--</div><canvas id="chartDiskOv" width="420" height="76"></canvas></div>
         </div>
         <div class="feed" id="solFeed">
-          <div class="meta" style="padding:10px 2px;">Click any item to expand.</div>
+          <div class="meta" style="padding:10px 2px;color:var(--muted);font-style:italic;">Click any item to expand • Events appear here as they happen</div>
           <div id="solFeedInner"></div>
           <div class="meta" id="solEmpty" style="display:none;">No events yet.</div>
         </div>
@@ -300,7 +316,10 @@
       <div style="padding:12px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <select id="hAgent" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"></select>
         <select id="hType" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"></select>
-        <input id="hSearch" placeholder="Search…" style="flex:1;min-width:220px;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;" />
+        <div style="position:relative;flex:1;min-width:220px;">
+          <input id="hSearch" placeholder="Search…" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 32px 8px 10px;font-size:.82rem;box-sizing:border-box;" />
+          <button id="hSearchClear" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;">×</button>
+        </div>
         <select id="hLimit" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"><option>100</option><option>250</option><option>500</option></select>
       </div>
       <div style="overflow:auto;">
@@ -361,7 +380,7 @@
     <div class="modalBox">
       <div class="modalHd">
         <div class="ttl" id="modalTitle">Details</div>
-        <button class="btn" id="modalClose">Close</button>
+        <button class="btn" id="modalClose" style="padding:8px 16px;font-size:14px;">✕ Close</button>
       </div>
       <div class="modalBody">
         <div id="modalBody"></div>
@@ -369,7 +388,7 @@
     </div>
   </div>
 
-  <div class="footer">Auto-refresh: 2s • Read-only • If UI looks stale, hard refresh (Ctrl+F5).</div>
+  <div class="footer">Auto-refresh: 2s • Read-only • Keyboard: 1-7 for tabs • Ctrl+F5 to hard refresh</div>
 
   <script>
     const AGENTS = [
@@ -465,6 +484,17 @@
           if(t.dataset.tab==='thoughts') renderThoughts();
           if(t.dataset.tab==='worklog') renderWorklog();
         });
+      });
+
+      // Keyboard shortcuts for tabs (1-7)
+      document.addEventListener('keydown', (e)=>{
+        if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        const key = e.key;
+        if(key >= '1' && key <= '7'){
+          const tabs = qsa('.tab');
+          const idx = parseInt(key) - 1;
+          if(tabs[idx]) tabs[idx].click();
+        }
       });
     }
 
@@ -662,6 +692,12 @@
       typeSel.addEventListener('change', renderHistory);
       qs('#hSearch').addEventListener('input', renderHistory);
       qs('#hLimit').addEventListener('change', renderHistory);
+      
+      // Clear search button
+      qs('#hSearchClear').addEventListener('click', ()=>{
+        qs('#hSearch').value = '';
+        renderHistory();
+      });
     }
 
     function renderHistory(){

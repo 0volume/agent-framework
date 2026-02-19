@@ -266,11 +266,18 @@ def _parse_cognitive_log(text: str) -> list[tuple[str, str]]:
 
     lines = [ln.rstrip() for ln in text.splitlines()]
 
-    # Find header
+    # Find header (handle markdown like **Journal:** or ## Journal)
+    # Also handle cases like "Journal:**" (no space)
     start = None
     for i, ln in enumerate(lines):
         head = (ln or '').strip().lower()
+        # Strip common markdown
+        head = head.strip('*#-:').strip()
         if head in ("cognitive log", "cognitive-log", "cognitive_log", "journal", "journal log", "journal-log"):
+            start = i + 1
+            break
+        # Also check if line starts with "journal" (with possible leading chars)
+        if head.startswith('journal'):
             start = i + 1
             break
     if start is None:
@@ -768,9 +775,17 @@ def _detect_agent_from_session(path: Path) -> str:
                         continue
                     
                     low = text_to_check.lower()
+                    
+                    # Check for exact role matches (more specific)
+                    if 'project manager' in low:
+                        return 'project-manager'
+                    if 'ui-ux' in low or 'ui/ux' in low:
+                        return 'ui-ux-agent'
+                    if 'qa tester' in low or 'qa-test' in low:
+                        return 'qa-tester'
                     if 'portal-architect' in low:
                         return 'portal-architect'
-                    if 'code-agent' in low or 'code agent' in low:
+                    if 'code agent' in low:
                         return 'code'
                     if 'planner' in low and 'agent' in low:
                         return 'planner'
