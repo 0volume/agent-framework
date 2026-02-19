@@ -5,97 +5,233 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent Framework Dashboard</title>
   <style>
-    * { box-sizing: border-box; }
     :root{
-      --bg:#0d1117; --card:#161b22; --hover:#21262d; --border:#30363d;
-      --text:#c9d1d9; --muted:#8b949e;
-      --sol:#a371f7; --search:#58a6ff; --verify:#d29922; --summ:#3fb950; --sec:#f85149;
+      --bg:#0b1020;
+      --panel:#0f1730;
+      --card:#121c38;
+      --card2:#101a34;
+      --hover:#182552;
+      --border:rgba(255,255,255,.08);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.62);
+      --muted2:rgba(255,255,255,.42);
+      --accent:#58a6ff;
+      --good:#3fb950;
       --warn:#f0883e;
+      --bad:#f85149;
+      --sol:#a371f7;
+      --search:#58a6ff;
+      --verify:#d29922;
+      --summ:#3fb950;
+      --sec:#f85149;
+      --shadow: 0 12px 40px rgba(0,0,0,.35);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
-    body{ margin:0; padding:16px; background:var(--bg); color:var(--text);
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-    header{display:flex;justify-content:space-between;align-items:center;gap:12px;
-      padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);}    
-    h1{margin:0;font-size:1.2rem;}
-    .live{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem;}
-    .dot{width:8px;height:8px;border-radius:50%;background:var(--summ);animation:pulse 1.6s infinite;}
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; padding:18px;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background: radial-gradient(1200px 800px at 20% 0%, rgba(163,113,247,.12), transparent 60%),
+                  radial-gradient(1000px 700px at 90% 10%, rgba(88,166,255,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+
+    header{
+      display:flex; align-items:center; justify-content:space-between; gap:16px;
+      padding:14px 16px; margin-bottom:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .brand{ display:flex; flex-direction:column; gap:2px; }
+    .brand h1{ margin:0; font-size:1.05rem; letter-spacing:.2px; }
+    .brand .sub{ font-size:.75rem; color:var(--muted); }
+
+    .right{
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      font-size:.78rem; color:var(--muted);
+    }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--border);
+    }
+    .dot{ width:8px; height:8px; border-radius:50%; background:var(--good); animation:pulse 1.6s infinite; }
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-    .tab{cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);
-      padding:8px 12px;border-radius:8px;font-size:.8rem;user-select:none;}
-    .tab.active{background:var(--hover);color:var(--text);border-color:#3b4450;}
-    .panel{display:none;}
-    .panel.active{display:block;}
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;
+    }
+    .tab{
+      cursor:pointer; user-select:none;
+      padding:8px 12px; border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      color:var(--muted);
+      font-size:.78rem;
+      transition: all .15s ease;
+    }
+    .tab:hover{ background: rgba(255,255,255,.06); color:var(--text); }
+    .tab.active{ background: rgba(88,166,255,.14); border-color: rgba(88,166,255,.35); color:var(--text); }
 
-    .row{display:flex;gap:12px;flex-wrap:wrap;}
-    .metric{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
-    .metric .k{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
-    .metric .v{font-size:1rem;font-weight:650;margin-top:2px;}
+    .panel{ display:none; }
+    .panel.active{ display:block; }
 
-    /* SOL */
-    .sol{border:2px solid var(--sol);background:linear-gradient(135deg, rgba(163,113,247,.16), rgba(163,113,247,.05));
-      border-radius:14px;padding:14px;margin-bottom:14px;}
-    .solhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;}
-    .soltitle{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--sol);font-size:1.05rem;}
-    .pill{font-size:.7rem;padding:3px 10px;border-radius:999px;background:rgba(163,113,247,.18);color:var(--sol);}    
-    .feed{max-height:320px;overflow:auto;border-radius:10px;}
-    .act{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;background:var(--card);
-      border-left:3px solid var(--sol);margin-bottom:8px;border-radius:0 10px 10px 0;}
-    .act.reasoning{border-left-color:var(--warn);} 
-    .act.action{border-left-color:var(--search);} 
-    .act.decision{border-left-color:#ff7b72;} 
-    .act.message{border-left-color:#79c0ff;} 
-    .act.memory{border-left-color:#f778ba;} 
-    .act.improvement{border-left-color:#6ee7b7;} 
-    .t{min-width:54px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);font-size:.68rem;}
-    .ty{min-width:78px;text-transform:uppercase;font-size:.6rem;letter-spacing:.05em;color:var(--muted);
-      background:var(--hover);padding:2px 6px;border-radius:6px;text-align:center;}
-    .c{flex:1;line-height:1.32;font-size:.86rem;}
-    .empty{padding:22px;text-align:center;color:var(--muted);background:var(--card);
-      border:1px dashed var(--border);border-radius:10px;}
+    .grid{
+      display:grid; gap:14px;
+      grid-template-columns: 1.35fr .65fr;
+      align-items:start;
+    }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: 1fr; } }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:12px 14px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+    .title{
+      display:flex; align-items:center; gap:10px;
+      font-weight:750; font-size:.86rem; letter-spacing:.2px;
+    }
+    .meta{ font-size:.72rem; color:var(--muted); }
+
+    .metrics{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      padding:12px 14px;
+    }
+    @media (max-width: 900px){ .metrics{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+    .metric{
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding:10px 12px;
+    }
+    .metric .k{ font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted2); }
+    .metric .v{ margin-top:4px; font-size:1rem; font-weight:750; }
+
+    /* Sol feed */
+    .feed{ padding:12px 14px; max-height: 420px; overflow:auto; }
+    .evt{
+      display:grid; grid-template-columns: 70px 86px 1fr;
+      gap:10px; align-items:start;
+      padding:10px 10px;
+      margin-bottom:10px;
+      border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.12);
+      cursor:pointer;
+      transition: background .15s ease;
+    }
+    .evt:hover{ background: rgba(255,255,255,.04); }
+    .ts{ font-family:var(--mono); font-size:.68rem; color:var(--muted); }
+    .tag{
+      justify-self:start;
+      font-size:.62rem; text-transform:uppercase; letter-spacing:.08em;
+      padding:3px 8px; border-radius: 999px;
+      border:1px solid var(--border);
+      color:var(--muted);
+      background: rgba(255,255,255,.02);
+      white-space:nowrap;
+    }
+    .tag.message{ border-color: rgba(121,192,255,.35); color:#a8d1ff; }
+    .tag.activity{ border-color: rgba(88,166,255,.35); color:#9fceff; }
+    .tag.thinking{ border-color: rgba(163,113,247,.35); color:#d4b8ff; }
+    .tag.reasoning{ border-color: rgba(240,136,62,.45); color:#ffd1a7; }
+    .tag.decision{ border-color: rgba(255,123,114,.35); color:#ffb4ad; }
+    .tag.memory{ border-color: rgba(247,120,186,.35); color:#ffc2e7; }
+    .tag.improvement{ border-color: rgba(110,231,183,.35); color:#bfffea; }
+    .tag.result{ border-color: rgba(63,185,80,.35); color:#bff5c9; }
+
+    .summary{ font-size:.86rem; line-height:1.35; color:var(--text); }
+    .subline{ margin-top:6px; color:var(--muted); font-size:.76rem; }
 
     /* Agent tiles */
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
-    .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;}
-    .tile:hover{border-color:#3b4450;background:var(--hover);} 
-    .thead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-weight:700;font-size:.78rem;}
-    .thead.search{border-left:4px solid var(--search);} 
-    .thead.verify{border-left:4px solid var(--verify);} 
-    .thead.summarize{border-left:4px solid var(--summ);} 
-    .thead.security{border-left:4px solid var(--sec);} 
-    .thead.sol{border-left:4px solid var(--sol);} 
-    .status{font-size:.62rem;color:var(--muted);background:var(--bg);border:1px solid var(--border);
-      padding:2px 8px;border-radius:999px;}
-    .status.active{color:var(--summ);border-color:rgba(63,185,80,.35);background:rgba(63,185,80,.08);} 
-    .body{max-height:160px;overflow:auto;}
-    .mini{display:flex;gap:8px;padding:7px 10px;border-top:1px solid var(--border);font-size:.74rem;color:var(--muted);}    
-    .mini .mi{min-width:44px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.66rem;}
-    .mini .mx{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tiles{ padding:12px 14px; display:grid; gap:12px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    @media (max-width: 1100px){ .tiles{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 650px){ .tiles{ grid-template-columns: 1fr; } }
 
-    /* History table */
-    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 12px;}
-    select,input{background:var(--card);border:1px solid var(--border);color:var(--text);
-      border-radius:10px;padding:8px 10px;font-size:.8rem;}
-    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-    th,td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:.8rem;vertical-align:top;}
-    th{color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;text-align:left;background:rgba(255,255,255,.02);}    
-    tr:hover td{background:rgba(255,255,255,.02);} 
-    .badge{display:inline-block;font-size:.62rem;padding:2px 8px;border-radius:999px;background:var(--hover);color:var(--muted);border:1px solid var(--border);}    
+    .tile{
+      border:1px solid var(--border);
+      border-radius: 16px;
+      overflow:hidden;
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      transition: transform .15s ease, background .15s ease;
+    }
+    .tile:hover{ transform: translateY(-1px); background: rgba(255,255,255,.05); }
+    .tile .th{
+      padding:10px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      font-weight:750; font-size:.78rem;
+    }
+    .leftlab{ display:flex; align-items:center; gap:8px; }
+    .st{ font-size:.62rem; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:2px 8px; background: rgba(0,0,0,.15); }
+    .st.active{ color:var(--good); border-color: rgba(63,185,80,.35); background: rgba(63,185,80,.08); }
+    .tile .tb{ max-height: 170px; overflow:auto; border-top:1px solid var(--border); }
+    .mini{ display:flex; gap:10px; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.05); font-size:.74rem; color:var(--muted); }
+    .mini:last-child{ border-bottom:none; }
+    .mini .mT{ min-width:50px; font-family:var(--mono); font-size:.66rem; color:var(--muted2); }
+    .mini .mS{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    .footer{margin-top:14px;color:var(--muted);font-size:.68rem;text-align:center;}
-    a{color:var(--search);text-decoration:none;} a:hover{text-decoration:underline;}
+    /* System live cards + graphs */
+    .sysGrid{ display:grid; gap:12px; grid-template-columns: repeat(3, minmax(0,1fr)); padding:12px 14px; }
+    @media (max-width: 900px){ .sysGrid{ grid-template-columns: 1fr; } }
+    .sysCard{ cursor:pointer; }
+    canvas{ display:block; width:100%; height:76px; margin-top:8px; }
+
+    /* Modal */
+    #modal{ display:none; position:fixed; inset:0; z-index:9999; background: rgba(0,0,0,.6); padding:24px; }
+    .modalBox{
+      max-width: 980px; margin:0 auto;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modalHd{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--border); }
+    .modalHd .ttl{ font-weight:800; font-size:.9rem; }
+    .btn{ background: transparent; color:var(--text); border:1px solid var(--border); border-radius: 12px; padding:6px 10px; cursor:pointer; }
+    .modalBody{ padding:14px; max-height: 70vh; overflow:auto; }
+    pre{ margin:0; white-space:pre-wrap; word-break:break-word; font-size:.84rem; line-height:1.4; }
+
+    .footer{ margin-top:14px; text-align:center; color:var(--muted2); font-size:.72rem; }
+    code{ font-family:var(--mono); font-size:.78em; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Agent Framework Dashboard</h1>
-    <div class="live"><span class="dot"></span><span>LIVE</span><span id="fetchTs"></span></div>
+    <div class="brand">
+      <h1>Agent Framework</h1>
+      <div class="sub">Read‑only monitoring • drill‑down everywhere • stable via systemd</div>
+    </div>
+    <div class="right">
+      <div class="pill"><span class="dot"></span><span>LIVE</span></div>
+      <div class="pill">Last refresh: <span id="fetchTs">--</span></div>
+      <div class="pill"><span id="jsStatus">JS: loading…</span></div>
+    </div>
   </header>
 
   <div class="tabs">
-    <div class="tab active" data-tab="main">Main</div>
-    <div class="tab" data-tab="agents">Agents</div>
+    <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="history">History</div>
     <div class="tab" data-tab="thoughts">Thoughts</div>
     <div class="tab" data-tab="memories">Memories</div>
@@ -103,151 +239,142 @@
     <div class="tab" data-tab="system">System</div>
   </div>
 
-  <!-- MAIN -->
-  <section class="panel active" id="panel-main">
-    <div class="sol">
-      <div class="solhead">
-        <div class="soltitle">🧠 SOL <span class="pill" id="solState">ACTIVE</span></div>
-        <div style="display:flex;gap:10px;color:var(--muted);font-size:.75rem;">
-          <div><span id="solCount">0</span> events</div>
-          <div>last: <span id="solLast">--</span></div>
+  <!-- OVERVIEW -->
+  <section class="panel active" id="panel-overview">
+    <div class="grid">
+      <div class="card">
+        <div class="hd">
+          <div class="title">🧠 Sol • Live cognitive feed</div>
+          <div class="meta"><span id="solCount">0</span> events • last: <span id="solLast">--</span></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Tavily remaining/hr</div><div class="v" id="mTavily">--/5</div></div>
+          <div class="metric"><div class="k">LLM remaining/hr</div><div class="v" id="mLlm">--/20</div></div>
+          <div class="metric"><div class="k">DB events shown</div><div class="v" id="mEvents">--</div></div>
+          <div class="metric"><div class="k">Dashboard</div><div class="v">Read‑only</div></div>
+        </div>
+        <div class="feed" id="solFeed">
+          <div class="meta" style="padding:10px 2px;">Click any item to expand.</div>
+          <div id="solFeedInner"></div>
+          <div class="meta" id="solEmpty" style="display:none;">No events yet.</div>
         </div>
       </div>
-      <div class="feed" id="solFeed"><div class="empty">Waiting for activity…</div></div>
-    </div>
 
-    <div class="row" style="margin-bottom:12px;">
-      <div class="metric"><div class="k">Tavily (remaining/hr)</div><div class="v" id="mTavily">--/5</div></div>
-      <div class="metric"><div class="k">LLM calls (remaining/hr)</div><div class="v" id="mLlm">--/20</div></div>
-      <div class="metric"><div class="k">Sub-agents</div><div class="v" id="mAgents">4</div></div>
-      <div class="metric"><div class="k">Last update</div><div class="v" id="mLast">--</div></div>
+      <div class="card">
+        <div class="hd">
+          <div class="title">🤝 Agents</div>
+          <div class="meta">Click a tile → History</div>
+        </div>
+        <div class="tiles" id="agentTiles"></div>
+      </div>
     </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;">Sub-agents (always visible)</div>
-      <div style="color:var(--muted);font-size:.72rem;">Click tile → History</div>
-    </div>
-    <div class="grid" id="agentTiles">
-      <!-- Fallback tiles (visible even if JS fails) -->
-      <div class="tile" data-agent="search"><div class="thead search"><div>🔍 SEARCH</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
-      <div class="tile" data-agent="verify"><div class="thead verify"><div>✓ VERIFY</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
-      <div class="tile" data-agent="summarize"><div class="thead summarize"><div>📝 SUMMARIZE</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
-      <div class="tile" data-agent="security"><div class="thead security"><div>🔒 SECURITY</div><div class="status">IDLE</div></div><div class="body"><div class="no-activity">Idle</div></div></div>
-    </div>
-  </section>
-
-  <!-- AGENTS -->
-  <section class="panel" id="panel-agents">
-    <div class="grid" id="agentTiles2"></div>
   </section>
 
   <!-- HISTORY -->
   <section class="panel" id="panel-history">
-    <div class="controls">
-      <select id="hAgent"></select>
-      <select id="hType">
-        <option value="">All types</option>
-      </select>
-      <input id="hSearch" placeholder="Search text…" />
-      <select id="hLimit">
-        <option value="50">50 rows</option>
-        <option value="100" selected>100 rows</option>
-        <option value="250">250 rows</option>
-        <option value="500">500 rows</option>
-      </select>
+    <div class="card">
+      <div class="hd">
+        <div class="title">📜 History</div>
+        <div class="meta">DB-backed • summary row + click for detail</div>
+      </div>
+      <div style="padding:12px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <select id="hAgent" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"></select>
+        <select id="hType" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"></select>
+        <input id="hSearch" placeholder="Search…" style="flex:1;min-width:220px;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;" />
+        <select id="hLimit" style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 10px;font-size:.82rem;"><option>100</option><option>250</option><option>500</option></select>
+      </div>
+      <div style="overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:rgba(255,255,255,.02);">
+              <th style="text-align:left;padding:10px 12px;font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;border-top:1px solid var(--border);border-bottom:1px solid var(--border);width:170px;">Time (UTC)</th>
+              <th style="text-align:left;padding:10px 12px;font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;border-top:1px solid var(--border);border-bottom:1px solid var(--border);width:110px;">Agent</th>
+              <th style="text-align:left;padding:10px 12px;font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;border-top:1px solid var(--border);border-bottom:1px solid var(--border);width:120px;">Type</th>
+              <th style="text-align:left;padding:10px 12px;font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">Summary</th>
+            </tr>
+          </thead>
+          <tbody id="hBody"></tbody>
+        </table>
+      </div>
+      <div class="footer" style="margin:10px 0 14px;">Tip: click any row to expand the human-readable detail.</div>
     </div>
-    <table>
-      <thead><tr><th style="width:110px;">Time</th><th style="width:120px;">Agent</th><th style="width:120px;">Type</th><th>Content</th></tr></thead>
-      <tbody id="hBody"><tr><td colspan="4" class="empty" style="border:none">Select an agent to view history.</td></tr></tbody>
-    </table>
   </section>
 
   <!-- THOUGHTS -->
   <section class="panel" id="panel-thoughts">
-    <div id="thoughtList" class="empty">No thoughts yet.</div>
+    <div class="card"><div class="hd"><div class="title">💭 Thoughts</div><div class="meta">Click to expand</div></div><div class="feed" id="thoughtList"></div></div>
   </section>
 
   <!-- MEMORIES -->
   <section class="panel" id="panel-memories">
-    <div id="memoryList" class="empty">No memories yet.</div>
+    <div class="card"><div class="hd"><div class="title">📝 Memories</div><div class="meta">Click to expand</div></div><div class="feed" id="memoryList"></div></div>
   </section>
 
   <!-- IMPROVEMENTS -->
   <section class="panel" id="panel-improvements">
-    <div id="improveList" class="empty">No improvements yet.</div>
+    <div class="card"><div class="hd"><div class="title">✨ Improvements</div><div class="meta">Click to expand</div></div><div class="feed" id="improveList"></div></div>
   </section>
 
   <!-- SYSTEM -->
   <section class="panel" id="panel-system">
-    <div class="row">
-      <div class="metric"><div class="k">Phase</div><div class="v" id="sPhase">--</div></div>
-      <div class="metric"><div class="k">Cron jobs</div><div class="v" id="sCron">--</div></div>
-      <div class="metric"><div class="k">Dashboard mode</div><div class="v">READ-ONLY</div></div>
-      <div class="metric"><div class="k">Data</div><div class="v"><a href="/data.json" target="_blank">/data.json</a> · <a href="/sys.json" target="_blank">/sys.json</a></div></div>
-    </div>
-
-    <div class="row" style="margin-top:12px;">
-      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
-        <div class="k">CPU Load (1m/5m/15m)</div>
-        <div class="v" id="sysLoad">--</div>
-        <canvas id="chartLoad" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
+    <div class="card">
+      <div class="hd">
+        <div class="title">🖥️ System (live)</div>
+        <div class="meta">Fetched from <code>/sys.json</code> every 2s • not stored</div>
       </div>
-      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
-        <div class="k">Memory Available</div>
-        <div class="v" id="sysMemAvail">--</div>
-        <canvas id="chartMem" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
+      <div class="sysGrid">
+        <div class="metric sysCard" data-drill="sys"><div class="k">CPU load (1m/5m/15m)</div><div class="v" id="sysLoad">--</div><canvas id="chartLoad" width="420" height="76"></canvas></div>
+        <div class="metric sysCard" data-drill="sys"><div class="k">Memory available</div><div class="v" id="sysMemAvail">--</div><canvas id="chartMem" width="420" height="76"></canvas></div>
+        <div class="metric sysCard" data-drill="sys"><div class="k">Disk free (/)</div><div class="v" id="sysDiskFree">--</div><canvas id="chartDisk" width="420" height="76"></canvas></div>
       </div>
-      <div class="metric" style="min-width:220px;flex:1;cursor:pointer;" data-drill="sys">
-        <div class="k">Disk Free (/)</div>
-        <div class="v" id="sysDiskFree">--</div>
-        <canvas id="chartDisk" width="320" height="70" style="margin-top:8px;width:100%;height:70px;"></canvas>
-      </div>
-    </div>
-
-    <div class="footer" style="text-align:left;margin-top:12px;">
-      Live hardware metrics are fetched from <code>/sys.json</code> every 2s (no LLM involved). Not stored long-term.
+      <div class="footer" style="margin-top:0;">Click a card to open full system JSON.</div>
     </div>
   </section>
 
-  <div class="footer">Auto-refresh: 2s • Read-only • <span id="jsStatus">JS: loading…</span> • If you don’t see updates, hard-refresh (Ctrl+F5).</div>
-
-  <!-- Modal for drill-down (read-only) -->
-  <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);padding:24px;z-index:9999;">
-    <div style="max-width:980px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);">
-        <div style="font-weight:750;" id="modalTitle">Details</div>
-        <button id="modalClose" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer;">Close</button>
+  <!-- Modal -->
+  <div id="modal">
+    <div class="modalBox">
+      <div class="modalHd">
+        <div class="ttl" id="modalTitle">Details</div>
+        <button class="btn" id="modalClose">Close</button>
       </div>
-      <div style="padding:14px;max-height:70vh;overflow:auto;">
-        <pre id="modalBody" style="white-space:pre-wrap;word-break:break-word;margin:0;color:var(--text);font-size:.82rem;line-height:1.35;"></pre>
+      <div class="modalBody">
+        <pre id="modalBody"></pre>
       </div>
     </div>
   </div>
 
+  <div class="footer">Auto-refresh: 2s • Read-only • If UI looks stale, hard refresh (Ctrl+F5).</div>
+
   <script>
     const AGENTS = [
-      {key:'sol', name:'SOL', icon:'🧠', cls:'sol'},
-      {key:'search', name:'SEARCH', icon:'🔍', cls:'search'},
-      {key:'verify', name:'VERIFY', icon:'✓', cls:'verify'},
-      {key:'summarize', name:'SUMMARIZE', icon:'📝', cls:'summarize'},
-      {key:'security', name:'SECURITY', icon:'🔒', cls:'security'},
+      {key:'search', name:'Search', icon:'🔍', color:'var(--search)'},
+      {key:'verify', name:'Verify', icon:'✓', color:'var(--verify)'},
+      {key:'summarize', name:'Summarize', icon:'📝', color:'var(--summ)'},
+      {key:'security', name:'Security', icon:'🔒', color:'var(--sec)'},
     ];
 
-    const ICONS = { reasoning:'🔄', action:'⚡', thinking:'💭', decision:'🎯', message:'💬', memory:'📝', improvement:'✨', result:'✓', error:'✗', status:'•' };
+    const SYS_HIST = { load1:[], memAvailMb:[], diskFreeGb:[], max:120 };
 
     let DATA = null;
-    let selectedAgent = 'sol';
+    let LAST_SYS = null;
 
-    // Live system metrics history (browser-only, not stored)
-    const SYS_HIST = {
-      load1: [],
-      memAvailMb: [],
-      diskFreeGb: [],
-      max: 120, // last ~4 minutes at 2s
-    };
+    const qs = (s)=>document.querySelector(s);
+    const qsa = (s)=>Array.from(document.querySelectorAll(s));
 
-    function qs(sel){ return document.querySelector(sel); }
-    function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+    function safe(s){
+      if(s===null||s===undefined) return '';
+      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    function openModal(title, detailText){
+      qs('#modalTitle').textContent = title;
+      qs('#modalBody').textContent = detailText || '';
+      qs('#modal').style.display='block';
+    }
+    function closeModal(){ qs('#modal').style.display='none'; }
+    qs('#modalClose').addEventListener('click', closeModal);
+    qs('#modal').addEventListener('click', (e)=>{ if(e.target.id==='modal') closeModal(); });
 
     function setTabs(){
       qsa('.tab').forEach(t=>{
@@ -261,227 +388,6 @@
       });
     }
 
-    function safeTxt(s){
-      if(s===null||s===undefined) return '';
-      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    }
-
-    function normalizeEvent(agentKey, e){
-      return {
-        agent: agentKey,
-        type: e.type || 'status',
-        timestamp: e.timestamp || '',
-        full_timestamp: e.full_timestamp || '',
-        content: e.content || e.details || ''
-      };
-    }
-
-    function getAgentEvents(agentKey){
-      const a = DATA?.agents?.[agentKey] || [];
-      return a.map(e=>normalizeEvent(agentKey,e));
-    }
-
-    function allEvents(){
-      // prefer DATA.events if present (future), else derive from per-agent arrays
-      if(Array.isArray(DATA?.events) && DATA.events.length){
-        return DATA.events;
-      }
-      let ev=[];
-      AGENTS.forEach(a=>{ if(a.key!=='sol' && a.key!=='search' && a.key!=='verify' && a.key!=='summarize' && a.key!=='security') return; ev = ev.concat(getAgentEvents(a.key)); });
-      return ev;
-    }
-
-    function renderSol(){
-      const sol = getAgentEvents('sol');
-      qs('#solCount').textContent = sol.length;
-      qs('#solLast').textContent = sol.length ? sol[sol.length-1].timestamp : '--';
-      const feed = qs('#solFeed');
-      if(!sol.length){ feed.innerHTML = '<div class="empty">Waiting for activity…</div>'; return; }
-      const last = sol.slice(-25).reverse();
-      feed.innerHTML = last.map(e=>{
-        const ty = safeTxt(e.type);
-        const ct = safeTxt(e.content);
-        return `<div class="act ${ty}"><div class="t">${safeTxt(e.timestamp)}</div><div class="ty">${ty}</div><div class="c">${ct}</div></div>`;
-      }).join('');
-    }
-
-    function renderMetrics(){
-      const t = DATA?.rate_limits?.tavily; const l = DATA?.rate_limits?.llm;
-      qs('#mTavily').textContent = (t?.remaining ?? '-') + '/5';
-      qs('#mLlm').textContent = (l?.remaining ?? '-') + '/20';
-      qs('#mLast').textContent = new Date().toLocaleTimeString();
-
-      qs('#sPhase').textContent = DATA?.system?.phase || '--';
-      qs('#sCron').textContent = DATA?.system?.cron_jobs || '--';
-    }
-
-    function tileHTML(agentKey, name, icon, cls, entries){
-      // Active should mean *recent* activity, not just "has any history".
-      const lastTs = entries.length ? (entries[entries.length-1].full_timestamp || '') : '';
-      let isRecent = false;
-      if(lastTs){
-        const t = Date.parse(lastTs);
-        if(!Number.isNaN(t)){
-          const ageMs = Date.now() - t;
-          isRecent = ageMs < 2*60*1000; // 2 minutes
-        }
-      }
-      const has = entries.length>0;
-      const status = isRecent ? 'ACTIVE' : (has ? 'IDLE (stale)' : 'IDLE');
-      const stCls = isRecent ? 'status active' : 'status';
-      const minis = (has ? entries.slice(-6) : []).map(e=>{
-        const ic = ICONS[e.type] || '•';
-        const tx = safeTxt((e.content||e.details||'').slice(0,140));
-        return `<div class="mini"><div class="mi">${safeTxt(e.timestamp)}</div><div>${ic}</div><div class="mx">${tx}</div></div>`;
-      }).join('');
-      const body = has ? minis : `<div class="no-activity">Idle</div>`;
-      return `<div class="tile" data-agent="${agentKey}">
-        <div class="thead ${cls}"><div>${icon} ${name}</div><div class="${stCls}">${status}</div></div>
-        <div class="body">${body}</div>
-      </div>`;
-    }
-
-    function renderTiles(){
-      const keys = ['search','verify','summarize','security'];
-      const tiles = keys.map(k=>{
-        const meta = AGENTS.find(a=>a.key===k);
-        const entries = getAgentEvents(k);
-        return tileHTML(k, meta.name, meta.icon, meta.cls, entries);
-      }).join('');
-      qs('#agentTiles').innerHTML = tiles;
-      qs('#agentTiles2').innerHTML = tiles;
-
-      // click → set selected agent + open history tab
-      qsa('.tile').forEach(el=>{
-        el.addEventListener('click', ()=>{
-          selectedAgent = el.dataset.agent;
-          qs('#hAgent').value = selectedAgent;
-          // switch to history
-          qsa('.tab').forEach(x=>x.classList.remove('active'));
-          qsa('.panel').forEach(x=>x.classList.remove('active'));
-          qs('.tab[data-tab="history"]').classList.add('active');
-          qs('#panel-history').classList.add('active');
-          renderHistory();
-        });
-      });
-    }
-
-    function renderThoughts(){
-      const list = DATA?.thoughts || [];
-      const box = qs('#thoughtList');
-      if(!list.length){ box.className='empty'; box.textContent='No thoughts yet.'; return; }
-      box.className='';
-      box.innerHTML = list.slice(-30).reverse().map(t=>
-        `<div class="act ${safeTxt(t.type||'thought')}"><div class="t">${safeTxt((t.timestamp||'').slice(-5))}</div><div class="ty">${safeTxt(t.type||'thought')}</div><div class="c">${safeTxt(t.content||'')}</div></div>`
-      ).join('');
-    }
-
-    function renderMemories(){
-      const list = DATA?.memories || [];
-      const box = qs('#memoryList');
-      if(!list.length){ box.className='empty'; box.textContent='No memories yet.'; return; }
-      box.className='';
-      box.innerHTML = list.slice(-30).reverse().map(m=>
-        `<div class="act memory"><div class="t">${safeTxt(m.date||'')}</div><div class="ty">memory</div><div class="c"><b>${safeTxt(m.title||'')}</b><br/>${safeTxt(m.preview||m.content||'')}</div></div>`
-      ).join('');
-    }
-
-    function renderImprovements(){
-      const list = DATA?.improvements || [];
-      const box = qs('#improveList');
-      if(!list.length){ box.className='empty'; box.textContent='No improvements yet.'; return; }
-      box.className='';
-      box.innerHTML = list.slice(-30).reverse().map(i=>
-        `<div class="act improvement"><div class="t">${safeTxt((i.timestamp||'').slice(-5))}</div><div class="ty">improve</div><div class="c"><b>${safeTxt(i.title||'')}</b><br/>${safeTxt(i.content||'')}</div></div>`
-      ).join('');
-    }
-
-    function initHistoryControls(){
-      const agentSel = qs('#hAgent');
-      agentSel.innerHTML = AGENTS.map(a=>`<option value="${a.key}">${a.icon} ${a.name}</option>`).join('');
-      agentSel.value = selectedAgent;
-
-      agentSel.addEventListener('change', ()=>{ selectedAgent = agentSel.value; renderHistory(); });
-      qs('#hType').addEventListener('change', renderHistory);
-      qs('#hSearch').addEventListener('input', renderHistory);
-      qs('#hLimit').addEventListener('change', renderHistory);
-    }
-
-    function renderHistory(){
-      if(!DATA) return;
-      const agent = qs('#hAgent').value || selectedAgent;
-      const type = qs('#hType').value;
-      const q = qs('#hSearch').value.trim().toLowerCase();
-      const limit = parseInt(qs('#hLimit').value,10) || 100;
-
-      // Populate type dropdown (from events)
-      const types = Array.from(new Set(allEvents().map(e=>e.type))).sort();
-      const typeSel = qs('#hType');
-      const cur = typeSel.value;
-      typeSel.innerHTML = '<option value="">All types</option>' + types.map(t=>`<option value="${safeTxt(t)}">${safeTxt(t)}</option>`).join('');
-      typeSel.value = cur;
-
-      let ev = (agent==='all') ? allEvents() : getAgentEvents(agent);
-      if(type) ev = ev.filter(e=>e.type===type);
-      if(q) ev = ev.filter(e=>(e.content||'').toLowerCase().includes(q));
-      ev = ev.slice(-limit).reverse();
-
-      const body = qs('#hBody');
-      if(!ev.length){ body.innerHTML = `<tr><td colspan="4" class="empty" style="border:none">No history (filters too strict or no events yet).</td></tr>`; return; }
-      body.innerHTML = ev.map(e=>
-        `<tr>
-          <td>${safeTxt(e.timestamp)}</td>
-          <td>${safeTxt(e.agent)}</td>
-          <td><span class="badge">${safeTxt(e.type)}</span></td>
-          <td>${safeTxt(e.content)}</td>
-        </tr>`
-      ).join('');
-    }
-
-    window.addEventListener('error', (ev) => {
-      try {
-        const msg = ev?.message || 'unknown error';
-        qs('#jsStatus').textContent = 'JS error: ' + msg;
-      } catch {}
-    });
-
-    function openModal(title, obj){
-      const m = qs('#modal');
-      qs('#modalTitle').textContent = title;
-      try {
-        // Prefer a nice human string if provided
-        if (obj && typeof obj === 'object' && obj.detail_text) {
-          qs('#modalBody').textContent = obj.detail_text;
-        } else {
-          qs('#modalBody').textContent = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
-        }
-      } catch {
-        qs('#modalBody').textContent = String(obj);
-      }
-      m.style.display = 'block';
-    }
-    function closeModal(){ qs('#modal').style.display='none'; }
-    qs('#modalClose').addEventListener('click', closeModal);
-    qs('#modal').addEventListener('click', (e)=>{ if(e.target.id==='modal') closeModal(); });
-
-    // Click-to-drill: any event card or history row opens modal
-    document.addEventListener('click', (ev)=>{
-      const act = ev.target.closest('.act');
-      if(act){
-        openModal('Event', act.innerText.trim());
-        return;
-      }
-      const row = ev.target.closest('#hBody tr');
-      if(row && row.children.length>=4){
-        openModal('History row', {
-          time: row.children[0].innerText,
-          agent: row.children[1].innerText,
-          type: row.children[2].innerText,
-          content: row.children[3].innerText,
-        });
-      }
-    });
-
     function fmtBytes(n){
       if(n===null||n===undefined) return '--';
       const u=['B','KB','MB','GB','TB'];
@@ -494,104 +400,255 @@
       const c = qs('#'+canvasId);
       if(!c) return;
       const ctx = c.getContext('2d');
-      const w = c.width, h = c.height;
+      const w=c.width, h=c.height;
       ctx.clearRect(0,0,w,h);
-      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillStyle='rgba(255,255,255,0.02)';
       ctx.fillRect(0,0,w,h);
-      if(!values.length) return;
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const span = (max-min) || 1;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      if(values.length<2) return;
+      const min=Math.min(...values), max=Math.max(...values);
+      const span=(max-min)||1;
+      ctx.strokeStyle=color; ctx.lineWidth=2;
       ctx.beginPath();
-      values.forEach((v, idx)=>{
-        const x = idx * (w/(Math.max(values.length-1,1)));
-        const y = h - ((v-min)/span) * (h-6) - 3;
+      values.forEach((v,idx)=>{
+        const x = idx*(w/(values.length-1));
+        const y = h - ((v-min)/span)*(h-10) - 5;
         if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
       });
       ctx.stroke();
     }
 
-    async function fetchSys(){
-      let sys;
-      try {
-        const r = await fetch('/sys.json?_='+Date.now(), { cache: 'no-store' });
-        sys = await r.json();
-      } catch (e) {
-        // don't spam footer; just fail quietly
-        return;
-      }
-
-      // Update cards
-      if(sys.loadavg){
-        qs('#sysLoad').textContent = `${sys.loadavg['1m']} / ${sys.loadavg['5m']} / ${sys.loadavg['15m']}`;
-        SYS_HIST.load1.push(Number(sys.loadavg['1m'])||0);
-      }
-      if(sys.meminfo && sys.meminfo.MemAvailable){
-        const kb = parseFloat(sys.meminfo.MemAvailable.split(' ')[0]);
-        const mb = kb/1024;
-        qs('#sysMemAvail').textContent = `${mb.toFixed(0)} MB`;
-        SYS_HIST.memAvailMb.push(mb);
-      }
-      if(sys.disk_root){
-        const free = sys.disk_root.free_bytes;
-        qs('#sysDiskFree').textContent = fmtBytes(free);
-        SYS_HIST.diskFreeGb.push(free/1024/1024/1024);
-      }
-
-      // Trim
-      for(const k of ['load1','memAvailMb','diskFreeGb']){
-        if(SYS_HIST[k].length > SYS_HIST.max) SYS_HIST[k] = SYS_HIST[k].slice(-SYS_HIST.max);
-      }
-
-      // Draw graphs
-      drawSpark('chartLoad', SYS_HIST.load1.slice(-60), '#58a6ff');
-      drawSpark('chartMem', SYS_HIST.memAvailMb.slice(-60), '#3fb950');
-      drawSpark('chartDisk', SYS_HIST.diskFreeGb.slice(-60), '#d29922');
-
-      // Make system cards drillable
-      qsAllDrill();
-      window.__lastSys = sys;
+    function recentActive(entries){
+      if(!entries.length) return false;
+      const last = entries[entries.length-1];
+      const ts = last.full_timestamp || '';
+      const t = Date.parse(ts);
+      if(Number.isNaN(t)) return false;
+      return (Date.now() - t) < 2*60*1000;
     }
 
-    function qsAllDrill(){
-      document.querySelectorAll('[data-drill="sys"]').forEach(el=>{
-        if(el.__bound) return;
-        el.__bound = true;
+    function renderTiles(){
+      const tiles = AGENTS.map(a=>{
+        const entries = (DATA?.agents?.[a.key]||[]);
+        const active = recentActive(entries);
+        const st = active ? 'ACTIVE' : (entries.length ? 'IDLE (stale)' : 'IDLE');
+        const stCls = active ? 'st active' : 'st';
+        const minis = entries.slice(-6).map(e=>{
+          const txt = (e.content || e.details || '').toString().replace(/\n/g,' ');
+          return `<div class="mini"><div class="mT">${safe(e.timestamp||'')}</div><div class="mS">${safe(txt).slice(0,120)}</div></div>`;
+        }).join('') || `<div class="mini"><div class="mS">Idle</div></div>`;
+        return `
+          <div class="tile" data-agent="${a.key}">
+            <div class="th" style="border-left:4px solid ${a.color}">
+              <div class="leftlab">${a.icon} ${a.name}</div>
+              <div class="${stCls}">${st}</div>
+            </div>
+            <div class="tb">${minis}</div>
+          </div>
+        `;
+      }).join('');
+      qs('#agentTiles').innerHTML = tiles;
+
+      qsa('.tile').forEach(el=>{
         el.addEventListener('click', ()=>{
-          if(window.__lastSys) openModal('System details', {detail_text: JSON.stringify(window.__lastSys, null, 2)});
+          // Switch to history filtered
+          qs('[data-tab="history"]').click();
+          qs('#hAgent').value = el.dataset.agent;
+          renderHistory();
         });
       });
     }
 
-    async function fetchData(){ 
-      // Separate: fetch/parsing vs rendering errors.
+    function evtRow(e){
+      const ts = (e.timestamp || '').toString();
+      const tag = (e.type || 'status').toString();
+      const summary = (e.content || e.summary || '').toString();
+      const detail = (e.details || e.detail_text || '').toString();
+      return `
+        <div class="evt" data-detail="${safe(detail||summary)}" data-title="${safe(tag)}">
+          <div class="ts">${safe(ts)}</div>
+          <div class="tag ${safe(tag)}">${safe(tag)}</div>
+          <div>
+            <div class="summary">${safe(summary)}</div>
+            ${detail ? `<div class="subline">Click for detail</div>` : ``}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSol(){
+      const sol = (DATA?.agents?.sol || []);
+      qs('#solCount').textContent = sol.length;
+      qs('#solLast').textContent = sol.length ? (sol[sol.length-1].timestamp || '--') : '--';
+      const inner = qs('#solFeedInner');
+      if(!sol.length){ qs('#solEmpty').style.display='block'; inner.innerHTML=''; return; }
+      qs('#solEmpty').style.display='none';
+      const rows = sol.slice(-30).reverse().map(evtRow).join('');
+      inner.innerHTML = rows;
+    }
+
+    function renderSimpleList(containerId, list, mapFn){
+      const el = qs('#'+containerId);
+      if(!list || !list.length){ el.innerHTML = `<div class="meta">No items yet.</div>`; return; }
+      el.innerHTML = list.slice(-60).reverse().map(mapFn).join('');
+    }
+
+    function renderThoughts(){
+      renderSimpleList('thoughtList', DATA?.thoughts || [], (t)=>{
+        const title = (t.type || 'thought');
+        const summary = (t.content || '');
+        const detail = (t.detail_text || t.content || '');
+        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe((t.timestamp||'').slice(-5))}</div><div class="tag thinking">thought</div><div class="summary">${safe(summary)}</div></div>`;
+      });
+    }
+
+    function renderMemories(){
+      renderSimpleList('memoryList', DATA?.memories || [], (m)=>{
+        const title = m.title || 'Memory';
+        const summary = m.preview || m.content || '';
+        const detail = m.content || m.preview || '';
+        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe(m.date||'')}</div><div class="tag memory">memory</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
+      });
+    }
+
+    function renderImprovements(){
+      renderSimpleList('improveList', DATA?.improvements || [], (i)=>{
+        const title = i.title || 'Improvement';
+        const summary = i.content || '';
+        const detail = i.detail_text || i.content || '';
+        return `<div class="evt" data-title="${safe(title)}" data-detail="${safe(detail)}"><div class="ts">${safe((i.timestamp||'').slice(-5))}</div><div class="tag improvement">improve</div><div class="summary"><b>${safe(title)}</b><div class="subline">${safe(summary)}</div></div></div>`;
+      });
+    }
+
+    function initHistoryControls(){
+      const agentSel = qs('#hAgent');
+      agentSel.innerHTML = `<option value="">All agents</option>` +
+        [`<option value="sol">sol</option>`].concat(AGENTS.map(a=>`<option value="${a.key}">${a.key}</option>`)).join('');
+
+      const typeSel = qs('#hType');
+      typeSel.innerHTML = `<option value="">All types</option>`;
+
+      agentSel.addEventListener('change', renderHistory);
+      typeSel.addEventListener('change', renderHistory);
+      qs('#hSearch').addEventListener('input', renderHistory);
+      qs('#hLimit').addEventListener('change', renderHistory);
+    }
+
+    function renderHistory(){
+      const body = qs('#hBody');
+      const events = Array.isArray(DATA?.events) ? DATA.events : [];
+      if(!events.length){ body.innerHTML = `<tr><td colspan="4" style="padding:14px;color:var(--muted);">No DB events yet.</td></tr>`; return; }
+
+      // Populate type dropdown from DB
+      const types = Array.from(new Set(events.map(e=>e.type))).sort();
+      const typeSel = qs('#hType');
+      const cur = typeSel.value;
+      typeSel.innerHTML = `<option value="">All types</option>` + types.map(t=>`<option value="${safe(t)}">${safe(t)}</option>`).join('');
+      typeSel.value = cur;
+
+      const agent = qs('#hAgent').value;
+      const typ = qs('#hType').value;
+      const q = (qs('#hSearch').value || '').trim().toLowerCase();
+      const limit = parseInt(qs('#hLimit').value,10) || 100;
+
+      let rows = events.slice();
+      if(agent) rows = rows.filter(e=>e.agent===agent);
+      if(typ) rows = rows.filter(e=>e.type===typ);
+      if(q) rows = rows.filter(e=>(e.summary||'').toLowerCase().includes(q) || (e.detail_text||'').toLowerCase().includes(q));
+      rows = rows.slice(0, limit);
+
+      body.innerHTML = rows.map(e=>{
+        const dt = (e.detail_text || (e.payload && e.payload.detail_text) || '').toString();
+        const title = `${e.agent} • ${e.type}`;
+        return `
+          <tr class="hRow" data-title="${safe(title)}" data-detail="${safe(dt || e.summary)}" style="cursor:pointer;">
+            <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:var(--muted);font-family:var(--mono);font-size:.72rem;">${safe((e.ts||'').replace('T',' ').slice(0,19))}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);">${safe(e.agent)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:var(--muted);">${safe(e.type)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);">${safe(e.summary)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      qsa('.hRow').forEach(r=>{
+        r.addEventListener('click', ()=> openModal(r.dataset.title, r.dataset.detail));
+      });
+    }
+
+    async function fetchSys(){
+      try{
+        const r = await fetch('/sys.json?_='+Date.now(), { cache: 'no-store' });
+        const sys = await r.json();
+        LAST_SYS = sys;
+        const l = sys.loadavg || {};
+        qs('#sysLoad').textContent = `${l['1m']} / ${l['5m']} / ${l['15m']}`;
+
+        if(sys.meminfo && sys.meminfo.MemAvailable){
+          const kb = parseFloat(sys.meminfo.MemAvailable.split(' ')[0]);
+          const mb = kb/1024;
+          qs('#sysMemAvail').textContent = `${mb.toFixed(0)} MB`;
+          SYS_HIST.memAvailMb.push(mb);
+        }
+
+        if(sys.disk_root){
+          qs('#sysDiskFree').textContent = fmtBytes(sys.disk_root.free_bytes);
+          SYS_HIST.diskFreeGb.push(sys.disk_root.free_bytes/1024/1024/1024);
+        }
+
+        SYS_HIST.load1.push(Number(l['1m'])||0);
+
+        for(const k of ['load1','memAvailMb','diskFreeGb']){
+          if(SYS_HIST[k].length>SYS_HIST.max) SYS_HIST[k]=SYS_HIST[k].slice(-SYS_HIST.max);
+        }
+
+        drawSpark('chartLoad', SYS_HIST.load1.slice(-60), '#58a6ff');
+        drawSpark('chartMem', SYS_HIST.memAvailMb.slice(-60), '#3fb950');
+        drawSpark('chartDisk', SYS_HIST.diskFreeGb.slice(-60), '#d29922');
+
+        document.querySelectorAll('[data-drill="sys"]').forEach(el=>{
+          if(el.__bound) return;
+          el.__bound=true;
+          el.addEventListener('click', ()=> openModal('System details', JSON.stringify(LAST_SYS, null, 2)));
+        });
+      }catch{}
+    }
+
+    async function fetchData(){
       let payload;
-      try {
+      try{
         const r = await fetch('/data.json?_='+Date.now(), { cache: 'no-store' });
         payload = await r.json();
-      } catch (e) {
-        qs('#jsStatus').textContent = 'JS: fetch failed (' + (e?.message || e) + ')';
-        console.error('fetch failed', e);
+      }catch(e){
+        qs('#jsStatus').textContent = 'JS: fetch failed (' + (e?.message||e) + ')';
         return;
       }
 
       DATA = payload;
-      qs('#fetchTs').textContent = ' • ' + new Date().toLocaleTimeString();
+      qs('#fetchTs').textContent = new Date().toLocaleTimeString();
 
-      try {
-        renderMetrics();
+      try{
+        const t = DATA?.rate_limits?.tavily;
+        const l = DATA?.rate_limits?.llm;
+        qs('#mTavily').textContent = (t?.remaining ?? '-') + '/5';
+        qs('#mLlm').textContent = (l?.remaining ?? '-') + '/20';
+        qs('#mEvents').textContent = Array.isArray(DATA?.events) ? DATA.events.length : '--';
+
         renderSol();
         renderTiles();
         renderThoughts();
         renderMemories();
         renderImprovements();
         if(qs('#panel-history').classList.contains('active')) renderHistory();
+
+        // bind modal click for event cards
+        qsa('.evt').forEach(el=>{
+          if(el.__bound) return;
+          el.__bound = true;
+          el.addEventListener('click', ()=> openModal(el.dataset.title || 'Details', (el.dataset.detail || '').replace(/\\n/g,'\n')));
+        });
+
         qs('#jsStatus').textContent = 'JS: ok';
-      } catch (e) {
-        qs('#jsStatus').textContent = 'JS: render failed (' + (e?.message || e) + ')';
-        console.error('render failed', e);
+      }catch(e){
+        qs('#jsStatus').textContent = 'JS: render failed (' + (e?.message||e) + ')';
       }
     }
 
