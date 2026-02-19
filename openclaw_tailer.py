@@ -42,6 +42,7 @@ def load_dashboard(path: Path) -> dict:
         "rate_limits": {"tavily": {"used": 0, "limit": 5, "remaining": 5}, "llm": {"used": 0, "limit": 20, "remaining": 20}},
         "agents": {"search": [], "verify": [], "summarize": [], "security": [], "sol": []},
         "thoughts": [],
+        "worklog": [],
         "memories": [],
         "improvements": [],
         "system": {"phase": "--", "cron_jobs": "--"},
@@ -76,7 +77,7 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
 
     # Keep cognitive streams queryable in their own tabs (non-destructive: append-only, capped)
     try:
-        if typ in ('thought', 'plan', 'insight', 'highlight', 'reflection', 'risk'):
+        if typ in ('thought', 'idea', 'plan', 'reflection', 'decision', 'risk', 'insight'):
             d.setdefault('thoughts', [])
             d['thoughts'].append({
                 'timestamp': now_ts(),
@@ -85,6 +86,15 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
                 'detail_text': detail_text[:12000] if detail_text else content[:2000],
             })
             d['thoughts'] = d['thoughts'][-800:]
+        if typ == 'worklog':
+            d.setdefault('worklog', [])
+            d['worklog'].append({
+                'timestamp': now_ts(),
+                'type': 'worklog',
+                'content': content[:500],
+                'detail_text': detail_text[:12000] if detail_text else content[:2000],
+            })
+            d['worklog'] = d['worklog'][-800:]
         if typ == 'improvement':
             d.setdefault('improvements', [])
             d['improvements'].append({
@@ -315,6 +325,66 @@ def _parse_cognitive_log(text: str) -> list[tuple[str, str]]:
     return out
 
 
+def _worklog_from_tool_calls(tool_calls: list[dict]) -> list[str]:
+    """Derive a small set of human-readable worklog lines from tool calls.
+
+    This is NOT cognition. It's an audit/worklog stream.
+    Keep it high-signal and capped.
+    """
+    out: list[str] = []
+    if not tool_calls:
+        return out
+
+    # Prefer exec commands that indicate state changes
+    for tc in tool_calls:
+        name = (tc.get('name') or '').strip()
+        args = tc.get('arguments') or {}
+        if name != 'exec':
+            continue
+        cmd = str(args.get('command') or '')
+        one = ' '.join(cmd.split())
+        low = one.lower()
+
+        if 'git commit' in low:
+            # try to extract -m "..."
+            msg = None
+            if ' -m ' in one:
+                try:
+                    msg = one.split(' -m ', 1)[1].strip().strip('"').strip("'")
+                except Exception:
+                    msg = None
+            out.append('Git: commit' + (f" — {msg}" if msg else ''))
+        elif 'git push' in low:
+            out.append('Git: push')
+        elif 'systemctl restart' in low:
+            out.append('Service: restarted')
+        elif 'systemctl status' in low:
+            out.append('Service: status checked')
+
+        if len(out) >= 3:
+            break
+
+    # File edits/writes (single line)
+    if len(out) < 3:
+        for tc in tool_calls:
+            name = (tc.get('name') or '').strip()
+            args = tc.get('arguments') or {}
+            if name in ('edit', 'write'):
+                p = args.get('path') or args.get('file_path')
+                if p:
+                    out.append(f"File updated: {p}")
+                    break
+
+    # Deduplicate while preserving order
+    dedup = []
+    seen = set()
+    for x in out:
+        if x not in seen:
+            seen.add(x)
+            dedup.append(x)
+    return dedup[:3]
+
+
 class TurnAccumulator:
     """Accumulate low-level events into a single high-level log entry per user request."""
 
@@ -489,23 +559,16 @@ class TurnAccumulator:
         # Emit fewer, higher-signal events.
         events: list[tuple[str, str, str]] = []
 
-        # A single intent/thought event to anchor the turn, but avoid repeating the same one.
-        global LAST_INTENT
-        if summary and summary != LAST_INTENT:
-            events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
-            LAST_INTENT = summary
-
-        # Emit explicitly-authored cognitive events (preferred).
-        # These provide the incremental stream D wants, without guessing.
+        # STRICT MODE (per D): do NOT infer cognition.
+        # Only emit cognitive items when explicitly authored in a Cognitive log footer.
         for (typ, content) in (cog or [])[:5]:
             events.append((typ, content, f"Cognitive log\n- {content}"))
 
-        # Emit a "highlight" event if we actually have concrete highlights.
-        # (Avoid calling these "insights" — an insight should be a real learning, not a changelog bullet.)
-        if highlights:
-            events.append(('highlight', f"Highlights: {summary}", "\n".join(["Highlights"] + [f"- {h}" for h in highlights[:3]])))
+        # Worklog (derived; separate from cognition)
+        for wl in _worklog_from_tool_calls(self.tool_calls)[:3]:
+            events.append(('worklog', wl, "Worklog\n- " + wl))
 
-        # Full drill-down event.
+        # Full drill-down (still useful for History)
         events.append(('activity', summary, detail_text))
 
         return events
@@ -514,8 +577,7 @@ class TurnAccumulator:
 # One accumulator for the current tailed file
 ACC = TurnAccumulator()
 
-# Prevent boring repetition in the stream when consecutive turns share the same topic.
-LAST_INTENT: str | None = None
+# (strict cognitive mode) no inferred intent state
 
 
 def event_summary(obj: dict):
