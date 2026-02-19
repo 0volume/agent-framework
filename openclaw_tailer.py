@@ -156,8 +156,7 @@ def _topic_summary(s: str) -> str:
 
     if 'rapp' in low:
         return 'RAPP: research run'
-    if 'tar' in low:
-        return 'TAR: deep reflection'
+    # Avoid overloading historical project acronyms (e.g. TAR) in dashboard summaries.
 
     # Fallback: first sentence-ish
     return _short(t.replace('\n', ' '), 90)

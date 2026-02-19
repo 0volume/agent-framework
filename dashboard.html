@@ -351,7 +351,7 @@
         <button class="btn" id="modalClose">Close</button>
       </div>
       <div class="modalBody">
-        <pre id="modalBody"></pre>
+        <div id="modalBody"></div>
       </div>
     </div>
   </div>
@@ -379,9 +379,54 @@
       return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
+    function renderDetailBlocks(text){
+      // Turn our structured detail_text into readable blocks.
+      // Expected format (from tailer):
+      // What D asked\n- ...\n\nMy high-level thinking\n- ...
+      const lines = (text||'').split('\n');
+      const sections = [];
+      let cur = {title:'', items:[]};
+
+      function push(){
+        if(cur.title || cur.items.length){
+          sections.push(cur);
+          cur = {title:'', items:[]};
+        }
+      }
+
+      for(const ln of lines){
+        const l = ln.trimEnd();
+        if(!l.trim()) continue;
+        // Section headers: lines with no leading '-' and not indented
+        if(!l.startsWith('- ') && !l.startsWith('• ') && !l.startsWith('* ')){
+          // If looks like a header
+          if(l.length < 60 && !l.includes(':')){
+            push();
+            cur.title = l.trim();
+            continue;
+          }
+        }
+        if(l.startsWith('- ')) cur.items.push(l.slice(2));
+        else cur.items.push(l);
+      }
+      push();
+
+      // Build HTML
+      const esc = (s)=>String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+      return sections.map(s=>{
+        const items = s.items.map(it=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);">${esc(it)}</div>`).join('');
+        return `
+          <div style="margin-bottom:14px;padding:12px 12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.03);">
+            ${s.title ? `<div style="font-weight:800;margin-bottom:8px;color:rgba(255,255,255,.9)">${esc(s.title)}</div>` : ''}
+            <div style="font-size:.86rem;line-height:1.4;color:rgba(255,255,255,.86)">${items || `<div style="color:rgba(255,255,255,.62)">No details</div>`}</div>
+          </div>`;
+      }).join('') || `<div style="color:rgba(255,255,255,.7)">No details</div>`;
+    }
+
     function openModal(title, detailText){
       qs('#modalTitle').textContent = title;
-      qs('#modalBody').textContent = detailText || '';
+      // Use formatted blocks rather than raw text.
+      qs('#modalBody').innerHTML = renderDetailBlocks(detailText || '');
       qs('#modal').style.display='block';
     }
     function closeModal(){ qs('#modal').style.display='none'; }
@@ -487,6 +532,9 @@
       return map[x] || x || 'status';
     }
 
+    const DETAIL_STORE = new Map();
+    let DETAIL_SEQ = 0;
+
     function evtRow(e, compact=false){
       const ts = (e.timestamp || '').toString();
       const rawType = (e.type || 'status').toString();
@@ -494,14 +542,17 @@
       const summary = (e.content || e.summary || '').toString();
       const detail = (e.details || e.detail_text || '').toString();
 
-      // Overview feed: no timestamps (compact=true)
+      // Avoid HTML attribute truncation by storing details in a JS map.
+      const id = 'd' + (++DETAIL_SEQ);
+      DETAIL_STORE.set(id, detail || summary);
+
       return `
-        <div class="evt ${compact ? 'compact' : ''}" data-detail="${safe(detail||summary)}" data-title="${safe(tag)}">
+        <div class="evt ${compact ? 'compact' : ''}" data-detail-id="${id}" data-title="${safe(tag)}">
           ${compact ? `` : `<div class="ts">${safe(ts)}</div>`}
           <div class="tag ${safe(tag)}">${safe(tag)}</div>
           <div>
             <div class="summary">${safe(summary)}</div>
-            ${detail ? `<div class="subline">Click to expand</div>` : ``}
+            ${(detail || summary) ? `<div class="subline">Click to expand</div>` : ``}
           </div>
         </div>
       `;
@@ -703,7 +754,11 @@
         qsa('.evt').forEach(el=>{
           if(el.__bound) return;
           el.__bound = true;
-          el.addEventListener('click', ()=> openModal(el.dataset.title || 'Details', (el.dataset.detail || '').replace(/\\n/g,'\n')));
+          el.addEventListener('click', ()=>{
+            const id = el.dataset.detailId;
+            const txt = id ? (DETAIL_STORE.get(id) || '') : '';
+            openModal(el.dataset.title || 'Details', txt);
+          });
         });
 
         qs('#jsStatus').textContent = 'JS: ok';
