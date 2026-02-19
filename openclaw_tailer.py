@@ -251,6 +251,62 @@ def _extract_assistant_text_blocks(content) -> tuple[str, list[dict], list[str]]
     return (response_text, tool_calls, thinking_snips)
 
 
+def _parse_cognitive_log(text: str) -> list[tuple[str, str]]:
+    """Parse an explicitly-authored Cognitive Log from assistant text.
+
+    Expected format (very small footer):
+      Cognitive log
+      - Thought: ...
+      - Idea: ...
+      - Plan: ...
+
+    Returns list of (type, content) where type is one of:
+    thought|idea|plan|reflection|decision|risk|insight
+
+    We ONLY emit these if the assistant explicitly writes them.
+    This keeps telemetry grounded and avoids inferred "mind-reading".
+    """
+    if not isinstance(text, str) or not text.strip():
+        return []
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    # Find header
+    start = None
+    for i, ln in enumerate(lines):
+        if ln.lower() in ("cognitive log", "cognitive-log", "cognitive_log"):
+            start = i + 1
+            break
+    if start is None:
+        return []
+
+    out: list[tuple[str, str]] = []
+    for ln in lines[start:start + 12]:
+        if not ln.startswith('-'):
+            # stop when footer ends
+            if out:
+                break
+            continue
+        item = ln.lstrip('-').strip()
+        # Format: "Type: content"
+        if ':' not in item:
+            continue
+        k, v = item.split(':', 1)
+        typ = k.strip().lower()
+        content = v.strip()
+        if not content:
+            continue
+        if typ not in ("thought", "idea", "plan", "reflection", "decision", "risk", "insight"):
+            continue
+        # guardrails against code-ish content
+        if content.startswith('_') or '()' in content or '`' in content:
+            continue
+        out.append((typ, _short(content, 220)))
+        if len(out) >= 5:
+            break
+
+    return out
+
+
 class TurnAccumulator:
     """Accumulate low-level events into a single high-level log entry per user request."""
 
@@ -367,11 +423,16 @@ class TurnAccumulator:
 
         # 4) Response (what the user actually saw)
         highlights: list[str] = []
+        cog = []
         if self.response_text:
             lines.append("")
             lines.append("Response")
             import re
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
+
+            # Parse explicitly-authored cognitive log (preferred for cognitive monitoring)
+            cog = _parse_cognitive_log(rt)
+
             # Keep original line breaks for highlight extraction
             rt_lines = [ln.strip() for ln in (rt or '').splitlines() if ln.strip()]
             # Capture a few concrete bullets as "highlights" (grounded in the actual response text).
@@ -425,6 +486,11 @@ class TurnAccumulator:
         if summary and summary != LAST_INTENT:
             events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
             LAST_INTENT = summary
+
+        # Emit explicitly-authored cognitive events (preferred).
+        # These provide the incremental stream D wants, without guessing.
+        for (typ, content) in (cog or [])[:5]:
+            events.append((typ, content, f"Cognitive log\n- {content}"))
 
         # Emit a "highlight" event if we actually have concrete highlights.
         # (Avoid calling these "insights" — an insight should be a real learning, not a changelog bullet.)
