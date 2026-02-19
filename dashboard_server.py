@@ -56,7 +56,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
     
     def do_GET(self):
-        if self.path == '/data.json':
+        # Strip query params for routing
+        from urllib.parse import urlparse
+        path = urlparse(self.path).path
+
+        if path == '/data.json':
             load_data()
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -65,7 +69,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header('Pragma', 'no-cache')
             self.end_headers()
             self.wfile.write(json.dumps(dashboard_data).encode())
-        elif self.path.endswith('.html'):
+        elif path.endswith('.html'):
             # Disable caching for HTML to avoid stale JS/UI
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
@@ -76,7 +80,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not p.exists():
                 p = Path(__file__).parent / 'dashboard.html'
             self.wfile.write(p.read_bytes())
-        elif self.path == '/api/update':
+        elif path == '/api/update':
             # API for agents to update status
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -86,7 +90,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             super().do_GET()
     
     def do_POST(self):
-        if self.path == '/api/agent':
+        # Strip query params for routing
+        from urllib.parse import urlparse
+        path = urlparse(self.path).path
+
+        if path == '/api/agent':
             length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(length)
             try:
