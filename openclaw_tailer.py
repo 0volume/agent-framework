@@ -20,11 +20,16 @@ import json
 import os
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+
+# Write to SQLite event store (durable history)
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent))
+from db.events import append_event
 
 
 def now_ts():
-    return datetime.utcnow().strftime('%H:%M:%S')
+    return datetime.now(timezone.utc).strftime('%H:%M:%S')
 
 
 def load_dashboard(path: Path) -> dict:
@@ -45,19 +50,27 @@ def load_dashboard(path: Path) -> dict:
 
 
 def save_dashboard(path: Path, data: dict):
-    data["last_update"] = datetime.utcnow().isoformat()
+    data["last_update"] = datetime.now(timezone.utc).isoformat()
     path.write_text(json.dumps(data, indent=2))
 
 
-def append_sol(d: dict, typ: str, content: str):
+def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
+    ts_iso = datetime.now(timezone.utc).isoformat()
     d.setdefault("agents", {}).setdefault("sol", [])
     d["agents"]["sol"].append({
         "type": typ,
         "timestamp": now_ts(),
         "content": content[:500],
-        "full_timestamp": datetime.utcnow().isoformat(),
+        "details": detail_text[:2000] if detail_text else "",
+        "full_timestamp": ts_iso,
     })
     d["agents"]["sol"] = d["agents"]["sol"][-500:]
+
+    # Also persist to SQLite as a durable event
+    try:
+        append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:2000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
+    except Exception:
+        pass
 
 
 def newest_session_file(sessions_dir: Path) -> Path | None:
@@ -78,31 +91,74 @@ def tail_file(path: Path, start_pos: int):
             yield line
 
 
-def event_summary(obj: dict) -> tuple[str, str] | None:
-    # We try to extract safe, high-level events.
-    # OpenClaw JSONL structure may vary; we guard heavily.
+def event_summary(obj: dict) -> tuple[str, str, str] | None:
+    """Extract a high-level, human-readable event.
 
-    # Heuristic fields
-    role = obj.get('role') or obj.get('type')
-    content = obj.get('content')
+    Returns: (type, summary, detail_text)
+    """
 
-    # User message
-    if obj.get('role') == 'user' and isinstance(content, str):
-        return ('message', f"Message received: {content[:120]}")
+    # OpenClaw session JSONL lines are wrapped like:
+    # {"type":"message", "timestamp":..., "message": {"role":..., "content":[...]}}
+    msg = obj.get('message') if isinstance(obj.get('message'), dict) else None
+    if msg:
+        role = msg.get('role')
+        content = msg.get('content')
 
-    # Assistant message
-    if obj.get('role') == 'assistant' and isinstance(content, str):
-        return ('result', f"Response sent: {content[:120]}")
+        # User message
+        if role == 'user':
+            if isinstance(content, str):
+                return ('message', f"Message received", content[:400])
+            if isinstance(content, list) and content and isinstance(content[0], dict):
+                # sometimes content is structured
+                text = content[0].get('text') or str(content[0])
+                return ('message', f"Message received", str(text)[:400])
 
-    # Tool call / tool result (best-effort)
-    if 'tool' in obj and obj.get('tool'):
-        tool = obj.get('tool')
-        status = obj.get('status')
-        return ('action', f"Tool: {tool} ({status or 'call'})")
+        # Assistant message
+        if role == 'assistant':
+            # content is usually a list with thinking/toolCall blocks
+            if isinstance(content, list):
+                # Summarize tool calls
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    if block.get('type') == 'toolCall':
+                        name = block.get('name')
+                        args = block.get('arguments')
+                        detail = ''
+                        if args and isinstance(args, dict):
+                            # keep small
+                            detail = json.dumps(args)[:500]
+                        return ('action', f"Tool call: {name}", detail)
+                    if block.get('type') == 'thinking':
+                        # We do NOT dump hidden reasoning; we store a short excerpt.
+                        thinking = block.get('thinking')
+                        if isinstance(thinking, str) and thinking.strip():
+                            return ('thinking', 'Thinking (summary)', thinking.strip()[:500])
 
-    if obj.get('name') and obj.get('arguments') and obj.get('type') == 'tool_call':
-        return ('action', f"Tool call: {obj['name']}")
+                # If no tool call, treat as response
+                # Try to find text output
+                text_bits = []
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'text':
+                        text_bits.append(block.get('text',''))
+                if text_bits:
+                    t = '\n'.join(text_bits).strip()
+                    if t:
+                        return ('result', 'Response sent', t[:500])
 
+            if isinstance(content, str):
+                return ('result', 'Response sent', content[:500])
+
+        # ToolResult lines
+        if role == 'toolResult':
+            tool_name = msg.get('toolName')
+            details = msg.get('details')
+            agg = ''
+            if isinstance(details, dict):
+                agg = details.get('aggregated') or ''
+            return ('result', f"Tool result: {tool_name}", str(agg)[:800])
+
+    # Fallback: ignore
     return None
 
 
@@ -139,8 +195,9 @@ def main():
 
                 ev = event_summary(obj)
                 if ev:
+                    typ, summary, detail_text = ev
                     d = load_dashboard(dashboard_path)
-                    append_sol(d, ev[0], ev[1])
+                    append_sol(d, typ, summary, detail_text=detail_text)
                     save_dashboard(dashboard_path, d)
 
         time.sleep(args.poll_ms / 1000)
