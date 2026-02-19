@@ -115,11 +115,59 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(get_sys_metrics()).encode())
         elif path == '/data.json':
             load_data()
-            # Include recent events for drill-down/history
+
+            # Build a response object so we can filter legacy/junk in the live feed
+            # without deleting history from SQLite.
+            resp = dict(dashboard_data)
+
+            def _is_legacy_junk(e: dict) -> bool:
+                try:
+                    typ = str(e.get('type') or '').lower().strip()
+                    txt = (e.get('content') or e.get('summary') or '').strip()
+                    low = txt.lower()
+                except Exception:
+                    return False
+
+                # Old template-era / placeholder noise patterns
+                if txt in ('…', '-', '--', '—'):
+                    return True
+                if low.startswith('intent:'):
+                    return True
+                if low.startswith('plan:') and typ == 'plan':
+                    return True
+                if low.startswith('highlights:'):
+                    return True
+                # Older "interpretation"-style cognitive spam (not a real journal)
+                if low.startswith('d asked') and 'interpretation' in low:
+                    return True
+                if 'pre-compaction memory flush' in low:
+                    return True
+                if 'this data is useless' in low:
+                    return True
+                return False
+
+            # Filter Sol live stream to be cognitive-only by default.
+            # Worklog has its own tab; History remains full-fidelity via SQLite.
             try:
-                dashboard_data['events'] = query_events(limit=300)
+                sol = (resp.get('agents') or {}).get('sol') or []
+                keep_types = {'thought','idea','plan','reflection','decision','risk','insight','highlight'}
+                sol2 = [x for x in sol if str(x.get('type') or '').lower() in keep_types and not _is_legacy_junk(x)]
+                resp.setdefault('agents', {})['sol'] = sol2
+            except Exception:
+                pass
+
+            # Filter Thoughts tab payload similarly (strict cognitive view)
+            try:
+                th = resp.get('thoughts') or []
+                resp['thoughts'] = [x for x in th if not _is_legacy_junk(x)]
+            except Exception:
+                pass
+
+            # Include recent events for drill-down/history (DB-backed; unfiltered)
+            try:
+                resp['events'] = query_events(limit=300)
             except Exception as e:
-                dashboard_data['events'] = [{'id': -1, 'ts': datetime.utcnow().isoformat()+'Z', 'agent': 'system', 'type': 'error', 'summary': 'events query failed', 'payload': {'error': str(e)}}]
+                resp['events'] = [{'id': -1, 'ts': datetime.utcnow().isoformat()+'Z', 'agent': 'system', 'type': 'error', 'summary': 'events query failed', 'payload': {'error': str(e)}}]
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -127,7 +175,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.end_headers()
-            self.wfile.write(json.dumps(dashboard_data).encode())
+            self.wfile.write(json.dumps(resp).encode())
         elif path.endswith('.html'):
             # Disable caching for HTML to avoid stale JS/UI
             self.send_response(200)
