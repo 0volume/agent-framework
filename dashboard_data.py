@@ -145,8 +145,7 @@ def add_thought_from_log():
                 save_dashboard_data(data)
 
 if __name__ == "__main__":
-    # Test - add sample data
-    add_thought("Dashboard review: Adding tabs for thoughts, memories, and system status", "reflection")
-    add_improvement("Dashboard v1.1", "Added 4 tabs: Agents, Thoughts, Memories, System")
+    # Non-destructive sync only (do not inject sample/test entries)
     sync_memories()
-    print("Dashboard data updated")
+    add_thought_from_log()
+    print("Dashboard data synced")

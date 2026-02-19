@@ -65,11 +65,35 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
         "details": detail_text[:12000] if detail_text else "",
         "full_timestamp": ts_iso,
     })
-    d["agents"]["sol"] = d["agents"]["sol"][-500:]
+    # Keep a longer rolling window; the live stream can be bursty.
+    d["agents"]["sol"] = d["agents"]["sol"][-2000:]
 
     # Also persist to SQLite as a durable event
     try:
         append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:8000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
+    except Exception:
+        pass
+
+    # Keep cognitive streams queryable in their own tabs (non-destructive: append-only, capped)
+    try:
+        if typ in ('thought', 'plan', 'insight', 'reflection', 'risk'):
+            d.setdefault('thoughts', [])
+            d['thoughts'].append({
+                'timestamp': now_ts(),
+                'type': typ,
+                'content': content[:500],
+                'detail_text': detail_text[:12000] if detail_text else content[:2000],
+            })
+            d['thoughts'] = d['thoughts'][-800:]
+        if typ == 'improvement':
+            d.setdefault('improvements', [])
+            d['improvements'].append({
+                'timestamp': now_ts(),
+                'title': content[:100],
+                'content': (detail_text or '')[:2000] or content[:300],
+                'detail_text': detail_text[:12000] if detail_text else content[:2000],
+            })
+            d['improvements'] = d['improvements'][-300:]
     except Exception:
         pass
 
@@ -144,13 +168,17 @@ def _topic_summary(s: str) -> str:
     t = _strip_leading_timestamp(s)
     low = t.lower()
 
-    # Dashboard-centric heuristics
-    if 'dashboard' in low or 'portal' in low or 'ui' in low:
+    # System notices should not be misclassified as dashboard requests.
+    if low.startswith('system:'):
+        return 'System notice'
+
+    # Dashboard-centric heuristics (be strict: only trigger if explicitly about the dashboard)
+    if 'dashboard' in low or 'portal' in low:
         if 'timestamp' in low:
             return 'Dashboard: clean feed (remove timestamps)'
-        if 'graph' in low or 'system' in low:
+        if 'graph' in low or 'spark' in low or 'telemetry' in low or 'sys.json' in low:
             return 'Dashboard: system monitors & graphs'
-        if 'tiles' in low or 'agent' in low:
+        if 'tiles' in low or 'history' in low:
             return 'Dashboard: agent tiles & history'
         return 'Dashboard: UX / live feed'
 
