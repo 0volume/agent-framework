@@ -413,12 +413,13 @@
 
       // Build HTML
       const esc = (s)=>String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-      return sections.map(s=>{
-        const items = s.items.map(it=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);">${esc(it)}</div>`).join('');
+      const filtered = sections.filter(s => (s.title && s.title.trim()) || (s.items && s.items.length));
+      return filtered.map(s=>{
+        const items = (s.items||[]).map(it=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);">${esc(it)}</div>`).join('');
         return `
           <div style="margin-bottom:14px;padding:12px 12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.03);">
             ${s.title ? `<div style="font-weight:800;margin-bottom:8px;color:rgba(255,255,255,.9)">${esc(s.title)}</div>` : ''}
-            <div style="font-size:.86rem;line-height:1.4;color:rgba(255,255,255,.86)">${items || `<div style="color:rgba(255,255,255,.62)">No details</div>`}</div>
+            <div style="font-size:.86rem;line-height:1.4;color:rgba(255,255,255,.86)">${items}</div>
           </div>`;
       }).join('') || `<div style="color:rgba(255,255,255,.7)">No details</div>`;
     }

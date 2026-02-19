@@ -221,8 +221,33 @@ class TurnAccumulator:
         self.tool_calls.append({'name': name, 'arguments': args})
 
     def add_tool_result(self, tool_name: str, aggregated: str):
-        # Keep this readable: short excerpt, but not uselessly short.
-        self.tool_results.append({'tool': tool_name, 'out': _short(aggregated, 800)})
+        # We do NOT want computer-ish dumps here. Keep only high-signal outcomes.
+        out = (aggregated or '').strip()
+        if not out:
+            return
+
+        # If it's a big command output, drop it unless it looks like an error or a meaningful state change.
+        low = out.lower()
+        keep = any(k in low for k in ['error', 'failed', 'refused', 'traceback', 'exception'])
+        keep = keep or any(k in out for k in ['Started ', 'Stopped ', 'Active: ', 'LISTEN ', 'Connected', 'Disconnected'])
+
+        if not keep:
+            return
+
+        # Summarize common patterns
+        summary = ''
+        if 'LISTEN ' in out:
+            summary = 'Confirmed a service is listening on the expected port.'
+        elif 'Started ' in out:
+            summary = 'Service started successfully.'
+        elif 'Active: active (running)' in out:
+            summary = 'Service is running.'
+        elif any(k in low for k in ['failed', 'error', 'exception', 'traceback']):
+            summary = 'An error occurred (see details).'
+        else:
+            summary = _short(out.replace('\n', ' '), 180)
+
+        self.tool_results.append({'tool': tool_name, 'out': summary})
 
     def add_thinking(self, snippets: list[str]):
         self.thinking.extend(snippets)
@@ -262,7 +287,13 @@ class TurnAccumulator:
         if self.response_text:
             lines.append("")
             lines.append("Response summary")
-            lines.append("- " + _short(self.response_text.replace('\n',' '), 380))
+            # Make this readable: collapse whitespace and drop code-fence blocks.
+            rt = self.response_text
+            # remove fenced code blocks
+            import re
+            rt = re.sub(r"```.*?```", "[code omitted]", rt, flags=re.S)
+            rt = ' '.join(rt.split())
+            lines.append("- " + _short(rt, 320))
 
         detail_text = "\n".join(lines).strip()
         return ('activity', summary, detail_text)
