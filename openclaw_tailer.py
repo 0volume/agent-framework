@@ -61,14 +61,15 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
         "type": typ,
         "timestamp": now_ts(),
         "content": content[:500],
-        "details": detail_text[:2000] if detail_text else "",
+        # Allow longer detail in UI; DB will still cap separately.
+        "details": detail_text[:6000] if detail_text else "",
         "full_timestamp": ts_iso,
     })
     d["agents"]["sol"] = d["agents"]["sol"][-500:]
 
     # Also persist to SQLite as a durable event
     try:
-        append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:2000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
+        append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:4000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
     except Exception:
         pass
 
@@ -127,6 +128,39 @@ def _extract_user_text(content) -> str:
     if isinstance(content, list) and content and isinstance(content[0], dict):
         return content[0].get('text') or ''
     return ''
+
+
+def _strip_leading_timestamp(s: str) -> str:
+    """Remove leading '[Thu 2026-..]' style prefixes to keep feed clean."""
+    s = (s or '').lstrip()
+    if s.startswith('[') and ']' in s[:64]:
+        # remove first bracket block
+        s = s.split(']', 1)[1].lstrip()
+    return s
+
+
+def _topic_summary(s: str) -> str:
+    """Heuristic, no-LLM summary for feed titles."""
+    t = _strip_leading_timestamp(s)
+    low = t.lower()
+
+    # Dashboard-centric heuristics
+    if 'dashboard' in low or 'portal' in low or 'ui' in low:
+        if 'timestamp' in low:
+            return 'Dashboard: clean feed (remove timestamps)'
+        if 'graph' in low or 'system' in low:
+            return 'Dashboard: system monitors & graphs'
+        if 'tiles' in low or 'agent' in low:
+            return 'Dashboard: agent tiles & history'
+        return 'Dashboard: UX / live feed'
+
+    if 'rapp' in low:
+        return 'RAPP: research run'
+    if 'tar' in low:
+        return 'TAR: deep reflection'
+
+    # Fallback: first sentence-ish
+    return _short(t.replace('\n', ' '), 90)
 
 
 def _extract_assistant_text_blocks(content) -> tuple[str, list[dict], list[str]]:
@@ -188,8 +222,8 @@ class TurnAccumulator:
         self.tool_calls.append({'name': name, 'arguments': args})
 
     def add_tool_result(self, tool_name: str, aggregated: str):
-        # Keep tiny: just first ~200 chars
-        self.tool_results.append({'tool': tool_name, 'out': _short(aggregated, 240)})
+        # Keep this readable: short excerpt, but not uselessly short.
+        self.tool_results.append({'tool': tool_name, 'out': _short(aggregated, 800)})
 
     def add_thinking(self, snippets: list[str]):
         self.thinking.extend(snippets)
@@ -200,21 +234,10 @@ class TurnAccumulator:
 
     def build_event(self) -> tuple[str, str, str]:
         """Return (type, summary, detail_text)."""
-        topic = _short(self.user_text.replace('\n', ' '), 90)
+        topic = _topic_summary(self.user_text)
 
-        # High-level tools summary
-        tools_used = []
-        for tc in self.tool_calls:
-            n = tc.get('name')
-            if n:
-                tools_used.append(n)
-        tools_used = list(dict.fromkeys(tools_used))  # dedupe preserve order
-
-        # Summary should be human, at-a-glance, not system-ish.
-        # Avoid showing tool lists / IDs / timestamps.
+        # Summary should be human, at-a-glance.
         summary = topic or "Activity"
-        if self.response_text:
-            summary = f"{summary}"
 
         # Detail text: still human-readable
         lines = []
@@ -264,8 +287,9 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
         text = _extract_user_text(content)
         ACC.add_user(ts_iso, text)
         # Emit one immediate high-level "received" event (topic only)
-        topic = _short(text.replace('\n', ' '), 90)
-        detail = f"Message topic: {topic}\n\nFull message:\n{text.strip()}"
+        clean = _strip_leading_timestamp(text)
+        topic = _topic_summary(clean)
+        detail = "What D asked\n- " + _short(clean.strip(), 1200)
         return ('message', f"New request: {topic}", detail)
 
     if role == 'assistant':
@@ -274,6 +298,21 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
             ACC.add_tool_call(tc.get('name'), tc.get('arguments') or {})
         if thinking_snips:
             ACC.add_thinking(thinking_snips)
+            # Also store as standalone Thoughts items for the Thoughts tab (human-readable snippets)
+            try:
+                d = load_dashboard(dashboard_path)
+                d.setdefault('thoughts', [])
+                for sn in thinking_snips[-2:]:
+                    d['thoughts'].append({
+                        'timestamp': now_ts(),
+                        'type': 'high_level_thinking',
+                        'content': sn,
+                        'detail_text': sn,
+                    })
+                d['thoughts'] = d['thoughts'][-200:]
+                save_dashboard(dashboard_path, d)
+            except Exception:
+                pass
         if resp_text:
             ACC.add_response(resp_text)
             # Emit one aggregated event when we have a response
