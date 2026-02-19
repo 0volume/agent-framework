@@ -147,10 +147,36 @@ def _tool_purpose(tool_name: str, args: dict | None) -> tuple[str, str]:
 
 
 def _extract_user_text(content) -> str:
+    """Best-effort user text extraction.
+
+    OpenClaw sessions often encode messages as a list of blocks.
+    We prefer concatenating all text blocks (not just the first one).
+    If there is no text, but there is media, return a short placeholder so
+    the dashboard doesn't show an empty request.
+    """
     if isinstance(content, str):
         return content
-    if isinstance(content, list) and content and isinstance(content[0], dict):
-        return content[0].get('text') or ''
+
+    if isinstance(content, list):
+        texts: list[str] = []
+        has_media = False
+        for b in content:
+            if not isinstance(b, dict):
+                continue
+            t = b.get('type')
+            if t == 'text':
+                txt = b.get('text')
+                if isinstance(txt, str) and txt.strip():
+                    texts.append(txt.strip())
+            # Heuristic media detection (input_image / image blocks)
+            if t in ('image', 'input_image') or ('image' in b) or ('media' in b):
+                has_media = True
+
+        if texts:
+            return "\n".join(texts).strip()
+        if has_media:
+            return "[media attached]"
+
     return ''
 
 
@@ -294,7 +320,10 @@ class TurnAccumulator:
         Avoid template filler like "I interpreted this as needing clear UX" unless it is
         genuinely specific to this turn.
         """
-        user_clean = _strip_leading_timestamp(self.user_text.strip())
+        user_clean = _strip_leading_timestamp((self.user_text or '').strip())
+        # Avoid empty "Request" blocks (common with media-only messages)
+        if not user_clean:
+            user_clean = "[no text — possibly media-only message]"
         topic = _topic_summary(user_clean)
         summary = topic or "Activity"
 
@@ -337,15 +366,32 @@ class TurnAccumulator:
                     lines.append(f"- {tr['out']}")
 
         # 4) Response (what the user actually saw)
+        highlights: list[str] = []
         if self.response_text:
             lines.append("")
             lines.append("Response")
             import re
             rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
-            rt = ' '.join(rt.split())
-            parts = re.split(r"(?<=[.!?])\s+", rt)
-            short = ' '.join(parts[:2]).strip() if parts else rt
+            # Keep original line breaks for highlight extraction
+            rt_lines = [ln.strip() for ln in (rt or '').splitlines() if ln.strip()]
+            # Capture a few concrete bullets as "highlights" (grounded in the actual response text)
+            for ln in rt_lines[:40]:
+                if ln.startswith('- '):
+                    highlights.append(_short(ln[2:].strip(), 140))
+                if len(highlights) >= 3:
+                    break
+
+            flat = ' '.join(rt.split())
+            parts = re.split(r"(?<=[.!?])\s+", flat)
+            short = ' '.join(parts[:2]).strip() if parts else flat
             lines.append("- " + _short(short, 700))
+
+        # 5) Highlights (optional)
+        if highlights:
+            lines.append("")
+            lines.append("Highlights")
+            for h in highlights[:3]:
+                lines.append(f"- {h}")
 
         detail_text = "\n".join(lines).strip()
 
@@ -357,6 +403,10 @@ class TurnAccumulator:
         if summary and summary != LAST_INTENT:
             events.append(('thought', f"Intent: {summary}", "Request\n- " + _short(user_clean, 800)))
             LAST_INTENT = summary
+
+        # Emit an "insight" event if we actually have concrete highlights.
+        if highlights:
+            events.append(('insight', f"Highlights: {summary}", "\n".join(["Highlights"] + [f"- {h}" for h in highlights[:3]])))
 
         # Full drill-down event.
         events.append(('activity', summary, detail_text))
