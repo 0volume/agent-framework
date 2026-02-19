@@ -448,27 +448,51 @@ def event_summary(obj: dict):
     return None
 
 
+def _load_tailer_state(state_path: Path) -> dict:
+    try:
+        if state_path.exists():
+            return json.loads(state_path.read_text())
+    except Exception:
+        pass
+    return {"last_file": None, "last_pos": 0}
+
+
+def _save_tailer_state(state_path: Path, last_file: Path | None, last_pos: int):
+    try:
+        state_path.write_text(json.dumps({
+            "last_file": str(last_file) if last_file else None,
+            "last_pos": int(last_pos),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }, indent=2) + "\n")
+    except Exception:
+        pass
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dashboard', required=True)
     ap.add_argument('--sessions', required=True)
     ap.add_argument('--poll-ms', type=int, default=500)
+    ap.add_argument('--state', default=str(Path(__file__).parent / 'tailer_state.json'))
     args = ap.parse_args()
 
     dashboard_path = Path(args.dashboard)
     sessions_dir = Path(args.sessions)
+    state_path = Path(args.state)
 
-    last_file = None
-    last_pos = 0
+    st = _load_tailer_state(state_path)
+    last_file = Path(st['last_file']) if st.get('last_file') else None
+    last_pos = int(st.get('last_pos') or 0)
 
     while True:
         cur = newest_session_file(sessions_dir)
-        if cur and cur != last_file:
+        if cur and (last_file is None or cur != last_file):
             last_file = cur
             last_pos = 0
             d = load_dashboard(dashboard_path)
             append_sol(d, 'action', f"Tailing session: {cur.name}")
             save_dashboard(dashboard_path, d)
+            _save_tailer_state(state_path, last_file, last_pos)
 
         if last_file:
             # Tail new lines
@@ -489,6 +513,9 @@ def main():
                         typ, summary, detail_text = ev
                         append_sol(d, typ, summary, detail_text=detail_text)
                     save_dashboard(dashboard_path, d)
+
+                # Persist tail position so restarts don't replay old lines
+                _save_tailer_state(state_path, last_file, last_pos)
 
         time.sleep(args.poll_ms / 1000)
 
