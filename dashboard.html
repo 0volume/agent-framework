@@ -468,18 +468,38 @@
       });
     }
 
+    function niceType(t){
+      const x = (t||'').toString().toLowerCase();
+      const map = {
+        message: 'request',
+        activity: 'activity',
+        thinking: 'thinking',
+        reasoning: 'reasoning',
+        decision: 'decision',
+        memory: 'memory',
+        improvement: 'improvement',
+        result: 'result',
+        error: 'error',
+        status: 'status'
+      };
+      return map[x] || x || 'status';
+    }
+
     function evtRow(e){
       const ts = (e.timestamp || '').toString();
-      const tag = (e.type || 'status').toString();
+      const rawType = (e.type || 'status').toString();
+      const tag = niceType(rawType);
       const summary = (e.content || e.summary || '').toString();
       const detail = (e.details || e.detail_text || '').toString();
+
+      // Keep the feed clean: timestamp stays small, summary is the only main text.
       return `
         <div class="evt" data-detail="${safe(detail||summary)}" data-title="${safe(tag)}">
           <div class="ts">${safe(ts)}</div>
           <div class="tag ${safe(tag)}">${safe(tag)}</div>
           <div>
             <div class="summary">${safe(summary)}</div>
-            ${detail ? `<div class="subline">Click for detail</div>` : ``}
+            ${detail ? `<div class="subline">Click to expand</div>` : ``}
           </div>
         </div>
       `;

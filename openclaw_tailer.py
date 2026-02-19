@@ -210,20 +210,16 @@ class TurnAccumulator:
                 tools_used.append(n)
         tools_used = list(dict.fromkeys(tools_used))  # dedupe preserve order
 
-        summary_parts = []
-        if topic:
-            summary_parts.append(topic)
-        if tools_used:
-            summary_parts.append("tools: " + ', '.join(tools_used[:3]) + ("…" if len(tools_used) > 3 else ""))
+        # Summary should be human, at-a-glance, not system-ish.
+        # Avoid showing tool lists / IDs / timestamps.
+        summary = topic or "Activity"
         if self.response_text:
-            summary_parts.append("done")
-
-        summary = " | ".join(summary_parts) or "Activity"
+            summary = f"{summary}"
 
         # Detail text: still human-readable
         lines = []
         lines.append("What D asked")
-        lines.append("- " + self.user_text.strip())
+        lines.append("- " + _short(self.user_text.strip(), 1200))
         if self.thinking:
             lines.append("")
             lines.append("My high-level thinking")
@@ -238,7 +234,8 @@ class TurnAccumulator:
         if self.tool_results:
             lines.append("")
             lines.append("Important outputs")
-            for tr in self.tool_results[:4]:
+            # Keep this focused: short excerpts only.
+            for tr in self.tool_results[:3]:
                 lines.append(f"- {tr['tool']}: {tr['out']}")
         if self.response_text:
             lines.append("")
