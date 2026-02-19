@@ -62,14 +62,14 @@ def append_sol(d: dict, typ: str, content: str, detail_text: str = ""):
         "timestamp": now_ts(),
         "content": content[:500],
         # Allow longer detail in UI; DB will still cap separately.
-        "details": detail_text[:6000] if detail_text else "",
+        "details": detail_text[:12000] if detail_text else "",
         "full_timestamp": ts_iso,
     })
     d["agents"]["sol"] = d["agents"]["sol"][-500:]
 
     # Also persist to SQLite as a durable event
     try:
-        append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:4000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
+        append_event(agent="sol", typ=typ, summary=content[:200], detail_text=detail_text[:8000], detail={"source": "openclaw_tailer"}, ts=ts_iso)
     except Exception:
         pass
 
@@ -249,6 +249,7 @@ class TurnAccumulator:
 
         self.tool_results.append({'tool': tool_name, 'out': summary})
 
+
     def add_thinking(self, snippets: list[str]):
         self.thinking.extend(snippets)
 
@@ -394,15 +395,16 @@ def event_summary(obj: dict):
         if thinking_snips:
             ACC.add_thinking(thinking_snips)
 
-            # Emit immediate granular thought events (so the feed moves during work)
-            out = []
-            for sn in thinking_snips[-2:]:
-                out.append((
-                    'thought',
-                    'Thinking about the request',
-                    'High-level thinking\n- ' + sn,
-                ))
-            return out
+            # Emit an immediate granular thought event (so the feed moves during work)
+            # One event per assistant chunk, with multiple bullets, so expansion is useful.
+            snips = [s.strip() for s in thinking_snips if (s or '').strip()]
+            snips = snips[-6:]  # keep latest few
+            if not snips:
+                return None
+
+            summary = _short(snips[0].replace('\n', ' '), 90)
+            detail = "High-level thinking\n" + "\n".join(["- " + s for s in snips])
+            return [('thought', summary, detail)]
         if resp_text:
             ACC.add_response(resp_text)
             # Emit granular events when we have a response
