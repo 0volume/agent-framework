@@ -18,6 +18,46 @@ from http.server import SimpleHTTPRequestHandler
 PORT = 8766
 DATA_FILE = Path(__file__).parent / "dashboard_data.json"
 
+
+def get_sys_metrics():
+    """Lightweight system metrics (no external deps)."""
+    try:
+        import os
+        import shutil
+        # Load averages
+        with open('/proc/loadavg') as f:
+            la = f.read().split()[:3]
+        # Memory
+        mem = {}
+        with open('/proc/meminfo') as f:
+            for line in f:
+                k, v = line.split(':', 1)
+                mem[k.strip()] = v.strip()
+        # Disk (root)
+        du = shutil.disk_usage('/')
+        # Uptime
+        with open('/proc/uptime') as f:
+            up = float(f.read().split()[0])
+        return {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'loadavg': {'1m': float(la[0]), '5m': float(la[1]), '15m': float(la[2])},
+            'meminfo': {
+                'MemTotal': mem.get('MemTotal'),
+                'MemAvailable': mem.get('MemAvailable'),
+                'SwapTotal': mem.get('SwapTotal'),
+                'SwapFree': mem.get('SwapFree'),
+            },
+            'disk_root': {
+                'total_bytes': du.total,
+                'used_bytes': du.used,
+                'free_bytes': du.free,
+            },
+            'uptime_seconds': up,
+        }
+    except Exception as e:
+        return {'error': str(e), 'timestamp': datetime.utcnow().isoformat() + 'Z'}
+
+
 # In-memory data store
 dashboard_data = {
     "rate_limits": {
@@ -60,7 +100,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         from urllib.parse import urlparse
         path = urlparse(self.path).path
 
-        if path == '/data.json':
+        if path == '/sys.json':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.end_headers()
+            self.wfile.write(json.dumps(get_sys_metrics()).encode())
+        elif path == '/data.json':
             load_data()
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
