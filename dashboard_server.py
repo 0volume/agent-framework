@@ -61,8 +61,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
             self.end_headers()
             self.wfile.write(json.dumps(dashboard_data).encode())
+        elif self.path.endswith('.html'):
+            # Disable caching for HTML to avoid stale JS/UI
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.end_headers()
+            p = Path(__file__).parent / self.path.lstrip('/')
+            if not p.exists():
+                p = Path(__file__).parent / 'dashboard.html'
+            self.wfile.write(p.read_bytes())
         elif self.path == '/api/update':
             # API for agents to update status
             self.send_response(200)
