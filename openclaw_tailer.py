@@ -290,16 +290,32 @@ class TurnAccumulator:
 
         if self.tool_calls:
             lines.append("")
-            lines.append("Key actions (in words)")
-            for tc in self.tool_calls[:6]:
-                why, acc = _tool_purpose(tc.get('name',''), tc.get('arguments') or {})
-                lines.append(f"- Used {tc.get('name')} {why} → {acc}")
+            lines.append("Key actions")
+            # Summarize actions into 1–2 human lines (no repetitive tool spam)
+            tool_names = [tc.get('name') for tc in self.tool_calls if tc.get('name')]
+            uniq = list(dict.fromkeys(tool_names))
+            if uniq:
+                lines.append(f"- I used a few tools ({', '.join(uniq[:3])}{'…' if len(uniq)>3 else ''}) to implement the requested change.")
+            # Add one concrete sentence if we can infer intent
+            intent = []
+            for n in uniq:
+                if n == 'exec': intent.append('make/verify system changes')
+                if n == 'edit' or n == 'write': intent.append('update files')
+                if n == 'cron': intent.append('schedule/adjust jobs')
+                if n == 'web_fetch': intent.append('verify a source')
+            intent = list(dict.fromkeys(intent))
+            if intent:
+                lines.append("- The goal was to " + ", then ".join(intent[:2]) + ".")
 
+        # Important outputs: keep only if they indicate a user-visible state change or error.
         if self.tool_results:
-            lines.append("")
-            lines.append("Important outputs")
-            for tr in self.tool_results[:3]:
-                lines.append(f"- {tr['tool']}: {tr['out']}")
+            kept = [tr for tr in self.tool_results if tr.get('out')]
+            if kept:
+                lines.append("")
+                lines.append("Important outputs")
+                # At most one line
+                tr = kept[0]
+                lines.append(f"- {tr['out']}")
 
         if self.response_text:
             lines.append("")
