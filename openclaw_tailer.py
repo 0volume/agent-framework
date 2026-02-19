@@ -265,35 +265,51 @@ class TurnAccumulator:
 
         # Detail text: still human-readable
         lines = []
+        # Narrative-first detail view (what D wants to monitor)
+        user_clean = _strip_leading_timestamp(self.user_text.strip())
+
         lines.append("What D asked")
-        lines.append("- " + _short(self.user_text.strip(), 1200))
+        lines.append("- " + _short(user_clean, 1200))
+
+        # A storytelling-style narrative (high-level, human, not hidden chain-of-thought)
+        lines.append("")
+        lines.append("Narrative")
+        topic = _topic_summary(user_clean)
+        lines.append(f"- D asked about: {topic}")
+        lines.append("- I interpreted this as needing: a clear outcome + clean UX + stable/accurate telemetry")
+        lines.append("- So I focused on: (1) stability, (2) data quality, (3) readability, (4) drill‑down")
+
         if self.thinking:
             lines.append("")
             lines.append("My high-level thinking")
-            for s in self.thinking[-3:]:
+            for s in self.thinking[-4:]:
                 lines.append("- " + s)
+
         if self.tool_calls:
             lines.append("")
-            lines.append("Key actions")
+            lines.append("Key actions (in words)")
             for tc in self.tool_calls[:6]:
                 why, acc = _tool_purpose(tc.get('name',''), tc.get('arguments') or {})
                 lines.append(f"- Used {tc.get('name')} {why} → {acc}")
+
         if self.tool_results:
             lines.append("")
             lines.append("Important outputs")
-            # Keep this focused: short excerpts only.
             for tr in self.tool_results[:3]:
                 lines.append(f"- {tr['tool']}: {tr['out']}")
+
         if self.response_text:
             lines.append("")
             lines.append("Response summary")
-            # Make this readable: collapse whitespace and drop code-fence blocks.
-            rt = self.response_text
-            # remove fenced code blocks
             import re
-            rt = re.sub(r"```.*?```", "[code omitted]", rt, flags=re.S)
+            rt = re.sub(r"```.*?```", "[code omitted]", self.response_text or "", flags=re.S)
             rt = ' '.join(rt.split())
             lines.append("- " + _short(rt, 320))
+
+        lines.append("")
+        lines.append("What I plan next")
+        lines.append("- Capture more of this 'narrative' for each interaction")
+        lines.append("- Keep logs high-signal: cognitive intent, decisions, outcomes")
 
         detail_text = "\n".join(lines).strip()
         return ('activity', summary, detail_text)
@@ -346,7 +362,22 @@ def event_summary(obj: dict) -> tuple[str, str, str] | None:
         if resp_text:
             ACC.add_response(resp_text)
             # Emit one aggregated event when we have a response
-            return ACC.build_event()
+            typ, summ, detail = ACC.build_event()
+
+            # Also store a dedicated 'thought' narrative entry for the Thoughts/History tabs
+            try:
+                append_event(
+                    agent='sol',
+                    typ='thought',
+                    summary=f"Why I did what I did: {summ[:90]}",
+                    detail_text=detail[:4000],
+                    detail={'source':'narrative'},
+                    ts=datetime.now(timezone.utc).isoformat(),
+                )
+            except Exception:
+                pass
+
+            return (typ, summ, detail)
         return None
 
     if role == 'toolResult':
