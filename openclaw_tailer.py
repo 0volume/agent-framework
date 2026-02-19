@@ -176,7 +176,9 @@ def _topic_summary(s: str) -> str:
     if 'dashboard' in low or 'portal' in low:
         if 'timestamp' in low:
             return 'Dashboard: clean feed (remove timestamps)'
-        if 'graph' in low or 'spark' in low or 'telemetry' in low or 'sys.json' in low:
+        # Only label "system monitors & graphs" when the request is explicitly about
+        # telemetry/metrics rendering (avoid false positives when the text merely mentions "graphs").
+        if ('sys.json' in low) or ('telemetry' in low) or ('spark' in low) or ('sparkline' in low) or ('metrics' in low):
             return 'Dashboard: system monitors & graphs'
         if 'tiles' in low or 'history' in low:
             return 'Dashboard: agent tiles & history'
